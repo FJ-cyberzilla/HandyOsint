@@ -500,4 +500,4 @@ class HTTPClient:
         self.session = None
         self.session_lock = threading.Lock()
         
-    async def request(self, url:st)
+    async def request(self, 'url:st')
