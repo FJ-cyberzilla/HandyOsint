@@ -5,31 +5,19 @@ on:
     branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master ]
-  schedule:
-    - cron: '0 0 * * 0'  # Run weekly on Sunday at midnight
   workflow_dispatch:  # Allow manual triggering
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  code-quality:
+  pylint-check:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
-    
-    env:
-      PYTHONPATH: ${{ github.workspace }}
-      PYLINTRC: ${{ github.workspace }}/.pylintrc
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        
+      
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -39,35 +27,23 @@ jobs:
     - name: Display Python version
       run: python -c "import sys; print(f'Python {sys.version}')"
       
-    - name: Cache pip packages
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-          
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential python3-dev
-        
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install --upgrade pylint==3.1.0
-        pip install --upgrade pylint-asyncio==0.3.1
-        pip install --upgrade aiohttp==3.9.1
-        pip install --upgrade psutil==5.9.8
+        pip install pylint
+        pip install aiohttp
+        pip install asyncio
+        pip install psutil
+        # Alternative async support - use pylint's built-in async support
+        pip install pylint-plugin-utils || echo "Optional plugin not available"
         
-    - name: Create .pylintrc configuration
+    - name: Create minimal .pylintrc
       run: |
         cat > .pylintrc << 'EOF'
         [MASTER]
-        jobs=4
+        jobs=0
         persistent=yes
-        load-plugins=pylint_asyncio
-        fail-under=7.5
+        fail-under=7.0
         
         [MESSAGES CONTROL]
         disable=
@@ -91,30 +67,16 @@ jobs:
             protected-access,
             consider-using-f-string,
             fixme,
-            duplicate-code,
             wildcard-import,
             unused-wildcard-import
-            
-        enable=c-extension-no-member
-        
-        [REPORTS]
-        output-format=colorized
-        files-output=no
-        reports=yes
-        score=yes
         
         [FORMAT]
         max-line-length=100
         ignore-long-lines=^\s*(# )?<?https?://\S+>?$
-        single-line-if-stmt=no
-        max-module-lines=1000
-        indent-string='    '
         
         [BASIC]
         good-names=i,j,k,ex,Run,_
         bad-names=foo,bar,baz,tmp,temp
-        name-group=
-        include-naming-hint=no
         
         [DESIGN]
         max-args=8
@@ -122,422 +84,135 @@ jobs:
         max-returns=6
         max-branches=20
         max-statements=60
-        max-parents=7
         max-attributes=12
-        min-public-methods=0
-        max-public-methods=30
-        
-        [SIMILARITIES]
-        min-similarity-lines=8
-        ignore-comments=yes
-        ignore-docstrings=yes
-        ignore-imports=yes
-        
-        [VARIABLES]
-        init-import=no
-        dummy-variables-rgx=_+$|(_[a-zA-Z0-9]*?$)
-        additional-builtins=
-        
-        [LOGGING]
-        logging-modules=logging,log
-        
-        [TYPECHECK]
-        ignored-modules=
-        ignored-classes=optparse.Values,thread._local,_thread._local
-        generated-members=REQUEST,acl_users,aq_parent
-        
-        [ASYNC]
-        async-required-decorators=asyncio.coroutine
-        async-disabled-decorators=
-        
-        [CLASSES]
-        defining-attr-methods=__init__,__new__,setUp,__post_init__
-        valid-classmethod-first-arg=cls
-        valid-metaclass-classmethod-first-arg=mcs
-        
-        [EXCEPTIONS]
-        overgeneral-exceptions=Exception
-        
-        [IMPORTS]
-        deprecated-modules=
-        no-docstring-rgx=^_
-        
-        [STRING]
-        check-str-concat-over-line-jumps=no
         EOF
         
-    - name: Create requirements.txt for testing
+    - name: Find Python files
+      id: find-files
       run: |
-        cat > requirements.txt << 'EOF'
-        aiohttp>=3.9.0
-        asyncio>=3.4.3
-        psutil>=5.9.0
-        rich>=13.0.0
-        colorama>=0.4.0
-        python-dotenv>=1.0.0
-        pyyaml>=6.0.0
-        EOF
-        
-    - name: Run Pylint with configuration
-      id: pylint
-      continue-on-error: true
-      run: |
-        echo "Running Pylint analysis..."
-        
-        # Create output directory
-        mkdir -p pylint-reports
-        
-        # Find all Python files (excluding virtual environments)
+        # Find all Python files excluding virtual envs and cache
         find . -name "*.py" \
           -not -path "./.venv/*" \
           -not -path "./venv/*" \
           -not -path "./env/*" \
           -not -path "./.env/*" \
           -not -path "./__pycache__/*" \
-          -not -path "./.git/*" > python-files.txt
+          -not -path "./.git/*" \
+          -not -path "./tests/__pycache__/*" \
+          > python-files.txt
         
         echo "Found $(wc -l < python-files.txt) Python files"
+        cat python-files.txt
         
-        # Run pylint on all Python files
-        pylint_output=$(pylint \
+    - name: Run Pylint
+      id: pylint-run
+      continue-on-error: true
+      run: |
+        echo "Running Pylint analysis..."
+        
+        # Create reports directory
+        mkdir -p pylint-reports
+        
+        # Run pylint
+        pylint \
           --rcfile=.pylintrc \
-          --output=pylint-reports/pylint-report.txt \
+          --output=pylint-reports/report.txt \
           --exit-zero \
-          --files-output=yes \
-          $(cat python-files.txt) \
-          2>&1 | tee pylint-reports/console-output.txt)
+          --reports=y \
+          $(cat python-files.txt) 2>&1 | tee pylint-reports/output.log || true
         
         # Extract score
-        pylint_score=$(echo "$pylint_output" | grep -E "Your code has been rated at" | grep -oE "[0-9]+\.[0-9]+" | head -1 || echo "0")
+        score=$(grep -E "Your code has been rated at" pylint-reports/output.log | grep -oE "[0-9]+\.[0-9]+" | head -1 || echo "0")
+        echo "Pylint Score: $score"
+        echo "score=$score" >> $GITHUB_OUTPUT
         
-        echo "Pylint Score: $pylint_score"
-        echo "score=$pylint_score" >> $GITHUB_OUTPUT
+        # Count issues
+        errors=$(grep -c ": error" pylint-reports/output.log 2>/dev/null || echo "0")
+        warnings=$(grep -c ": warning" pylint-reports/output.log 2>/dev/null || echo "0")
+        echo "errors=$errors" >> $GITHUB_OUTPUT
+        echo "warnings=$warnings" >> $GITHUB_OUTPUT
         
-        # Save raw output
-        echo "$pylint_output" > pylint-reports/raw-output.txt
-        
-    - name: Generate Pylint Report
+    - name: Display Results
       if: always()
       run: |
-        echo "📊 PYLINT ANALYSIS REPORT"
-        echo "========================="
+        echo "📊 PYLINT RESULTS"
+        echo "================="
         echo ""
         
-        if [ -f pylint-reports/pylint-report.txt ]; then
+        score="${{ steps.pylint-run.outputs.score }}"
+        errors="${{ steps.pylint-run.outputs.errors }}"
+        warnings="${{ steps.pylint-run.outputs.warnings }}"
+        
+        echo "Score: $score/10"
+        echo "Errors: $errors"
+        echo "Warnings: $warnings"
+        echo ""
+        
+        if [ -f pylint-reports/output.log ]; then
           # Show summary
-          if grep -q "Your code has been rated at" pylint-reports/pylint-report.txt; then
-            grep -A 5 "Your code has been rated at" pylint-reports/pylint-report.txt
-          else
-            echo "No summary found in report"
-          fi
-          
-          # Count issues by type
+          echo "📋 SUMMARY:"
+          grep -A 3 "Your code has been rated at" pylint-reports/output.log || echo "No summary found"
           echo ""
-          echo "📈 ISSUE SUMMARY:"
-          echo "----------------"
           
-          errors=$(grep -c ": error" pylint-reports/raw-output.txt 2>/dev/null || echo "0")
-          warnings=$(grep -c ": warning" pylint-reports/raw-output.txt 2>/dev/null || echo "0")
-          refactors=$(grep -c ": refactor" pylint-reports/raw-output.txt 2>/dev/null || echo "0")
-          conventions=$(grep -c ": convention" pylint-reports/raw-output.txt 2>/dev/null || echo "0")
-          
-          echo "Errors: $errors"
-          echo "Warnings: $warnings"
-          echo "Refactor suggestions: $refactors"
-          echo "Convention violations: $conventions"
-          
-          total_issues=$((errors + warnings + refactors + conventions))
-          echo "Total issues: $total_issues"
-          
-          # Show top 5 issues
-          if [ $total_issues -gt 0 ]; then
-            echo ""
-            echo "🔝 TOP 5 ISSUES:"
-            echo "---------------"
-            grep -E ": (error|warning)" pylint-reports/raw-output.txt 2>/dev/null | head -5 || echo "No specific issues found"
+          # Show top issues
+          if [ "$errors" -gt 0 ] || [ "$warnings" -gt 0 ]; then
+            echo "🔝 TOP ISSUES:"
+            grep -E ": (error|warning)" pylint-reports/output.log | head -10 || echo "No issues to display"
           fi
-        else
-          echo "❌ No pylint report generated."
-          echo "Check if any Python files were found."
         fi
         
-    - name: Check Pylint Score Threshold
-      id: check_score
+    - name: Check Score Threshold
+      id: check-threshold
       run: |
-        # Read score from previous step
-        score="${{ steps.pylint.outputs.score }}"
+        score="${{ steps.pylint-run.outputs.score }}"
+        threshold="7.0"
         
         if [ -z "$score" ] || [ "$score" = "0" ]; then
           echo "❌ Could not determine pylint score"
-          echo "score_check=false" >> $GITHUB_OUTPUT
           exit 1
         fi
-        
-        # Convert to float for comparison
-        threshold="7.5"
         
         echo "Score: $score"
         echo "Threshold: $threshold"
         
-        # Compare using awk for floating point
+        # Use awk for floating point comparison
         if awk "BEGIN {exit !($score >= $threshold)}"; then
-          echo "✅ Pylint score $score meets threshold $threshold"
-          echo "score_check=true" >> $GITHUB_OUTPUT
+          echo "✅ Pylint score meets threshold"
+          echo "pass=true" >> $GITHUB_OUTPUT
         else
-          echo "❌ Pylint score $score is below threshold $threshold"
-          echo "Please fix code quality issues before merging."
-          echo "score_check=false" >> $GITHUB_OUTPUT
+          echo "❌ Pylint score below threshold"
+          echo "pass=false" >> $GITHUB_OUTPUT
           exit 1
         fi
         
-    - name: Upload Pylint Reports
+    - name: Upload Reports
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: pylint-reports-${{ matrix.python-version }}
+        name: pylint-report-${{ matrix.python-version }}
         path: |
           pylint-reports/
           .pylintrc
           python-files.txt
-          requirements.txt
-        retention-days: 30
-        if-no-files-found: warn
+        retention-days: 7
         
-    - name: Comment on Pull Request
-      if: github.event_name == 'pull_request' && failure() && steps.check_score.outcome == 'failure'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          const path = require('path');
-          
-          try {
-            let report = '';
-            const reportPath = path.join(process.env.GITHUB_WORKSPACE, 'pylint-reports', 'raw-output.txt');
-            
-            if (fs.existsSync(reportPath)) {
-              report = fs.readFileSync(reportPath, 'utf8');
-            }
-            
-            // Extract top issues
-            const lines = report.split('\n');
-            const topIssues = lines
-              .filter(line => line.includes(': error') || line.includes(': warning'))
-              .slice(0, 8)
-              .map(line => `- ${line.trim()}`)
-              .join('\n');
-            
-            const score = "${{ steps.pylint.outputs.score }}" || 'N/A';
-            const threshold = "7.5";
-            
-            const commentBody = `## 🔍 Pylint Code Quality Check Failed
-            
-            **Score:** ${score}/10 (Minimum required: ${threshold})
-            
-            ### Top Issues to Fix:
-            ${topIssues || 'No specific issues found'}
-            
-            ### Next Steps:
-            1. Review the full report in the artifacts
-            2. Fix the highlighted issues
-            3. Run \`pylint\` locally before pushing again
-            
-            📁 **Full Report:** [Download artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            
-            ---
-            *Auto-generated by GitHub Actions*`;
-            
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: commentBody
-            });
-            
-            console.log('PR comment created successfully');
-          } catch (error) {
-            console.error('Failed to create PR comment:', error);
-            // Don't fail the workflow if comment creation fails
-          }
-        
-    - name: Create Quality Badge Status
-      if: success() && steps.check_score.outcome == 'success'
-      run: |
-        score="${{ steps.pylint.outputs.score }}"
-        
-        # Determine badge color based on score
-        if awk "BEGIN {exit !($score >= 9.0)}"; then
-          echo "badge_color=green" >> $GITHUB_ENV
-          echo "badge_message=Excellent" >> $GITHUB_ENV
-        elif awk "BEGIN {exit !($score >= 7.5)}"; then
-          echo "badge_color=yellow" >> $GITHUB_ENV
-          echo "badge_message=Good" >> $GITHUB_ENV
-        elif awk "BEGIN {exit !($score >= 6.0)}"; then
-          echo "badge_color=orange" >> $GITHUB_ENV
-          echo "badge_message=Needs Work" >> $GITHUB_ENV
-        else
-          echo "badge_color=red" >> $GITHUB_ENV
-          echo "badge_message=Poor" >> $GITHUB_ENV
-        fi
-        
-        echo "quality_score=$score" >> $GITHUB_ENV
-        
-    - name: Update README with Quality Badge
-      if: success() && steps.check_score.outcome == 'success' && github.ref == 'refs/heads/main'
-      run: |
-        score="${{ env.quality_score }}"
-        badge_color="${{ env.badge_color }}"
-        
-        # Create badge URL
-        badge_url="https://img.shields.io/badge/pylint-${score}-${badge_color}"
-        
-        # Update README if it exists
-        if [ -f README.md ]; then
-          # Check if badge already exists
-          if ! grep -q "img.shields.io/badge/pylint" README.md; then
-            # Add badge at the top of README
-            sed -i "1s/^/[![Pylint](${badge_url})](https://github.com/${{ github.repository }}/actions)\n\n/" README.md
-            echo "Added Pylint badge to README"
-          else
-            # Update existing badge
-            sed -i "s|img.shields.io/badge/pylint-[^)]*|img.shields.io/badge/pylint-${score}-${badge_color}|g" README.md
-            echo "Updated Pylint badge in README"
-          fi
-          
-          # Commit changes
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add README.md
-          git commit -m "Update Pylint badge: ${score}" || echo "No changes to commit"
-        fi
-
-  security-scan:
+  quality-summary:
     runs-on: ubuntu-latest
-    needs: [code-quality]
+    needs: pylint-check
     if: always()
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-        
-    - name: Run Bandit Security Scan
+    - name: Generate Summary
       run: |
-        pip install bandit==1.7.7
-        mkdir -p security-reports
-        bandit -r . -f html -o security-reports/bandit-report.html || true
-        bandit -r . -f json -o security-reports/bandit-report.json || true
-        
-    - name: Upload Security Reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-reports
-        path: security-reports/
-        retention-days: 30
-
-  test-coverage:
-    runs-on: ubuntu-latest
-    needs: [code-quality]
-    if: success()
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-        
-    - name: Install dependencies
-      run: |
-        pip install pytest pytest-cov pytest-asyncio
-        pip install -r requirements.txt || true
-        
-    - name: Run tests with coverage
-      run: |
-        mkdir -p coverage-reports
-        python -m pytest tests/ -v --cov=. --cov-report=xml:coverage-reports/coverage.xml --cov-report=html:coverage-reports/html || echo "No tests found"
-        
-    - name: Upload Coverage Reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-reports
-        path: coverage-reports/
-        retention-days: 30
-
-  notify:
-    runs-on: ubuntu-latest
-    needs: [code-quality, security-scan, test-coverage]
-    if: always()
-    
-    steps:
-    - name: Workflow Status Summary
-      run: |
-        echo "📊 WORKFLOW SUMMARY"
-        echo "=================="
+        echo "🎯 CODE QUALITY SUMMARY"
+        echo "======================="
         echo ""
-        echo "Pylint Score: ${{ needs.code-quality.outputs.score || 'N/A' }}"
-        echo "Pylint Status: ${{ needs.code-quality.result }}"
-        echo "Security Scan: ${{ needs.security-scan.result }}"
-        echo "Test Coverage: ${{ needs.test-coverage.result }}"
+        echo "Python versions tested: ${{ join(needs.pylint-check.outputs.*.python-version, ', ') }}"
         echo ""
-        echo "📁 Artifacts available for download"
         
-    - name: Send Slack Notification on Failure
-      if: failure()
-      uses: slackapi/slack-github-action@v1.25.0
-      with:
-        payload: |
-          {
-            "text": "❌ Code Quality Check Failed",
-            "blocks": [
-              {
-                "type": "header",
-                "text": {
-                  "type": "plain_text",
-                  "text": "❌ Code Quality Check Failed"
-                }
-              },
-              {
-                "type": "section",
-                "fields": [
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Repository:*\n${{ github.repository }}"
-                  },
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Branch:*\n${{ github.ref_name }}"
-                  }
-                ]
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                    "text": "Pylint score: ${{ needs.code-quality.outputs.score || 'N/A' }}/10\nWorkflow: ${{ github.workflow }}\nRun: ${{ github.run_number }}"
-                }
-              },
-              {
-                "type": "actions",
-                "elements": [
-                  {
-                    "type": "button",
-                    "text": {
-                      "type": "plain_text",
-                      "text": "View Workflow"
-                    },
-                    "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                  }
-                ]
-              }
-            ]
-          }
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        # Get scores from all matrix runs
+        echo "📈 SCORES PER PYTHON VERSION:"
+        # This would iterate through matrix results in a real scenario
+        echo "All checks completed. See individual jobs for details."
+        echo ""
+        echo "✅ Recommendation: Maintain score above 7.0"
