@@ -1,0 +1,57 @@
+[MASTER]
+jobs=4
+persistent=yes
+load-plugins=pylint_asyncio
+fail-under=7.5
+
+[MESSAGES CONTROL]
+disable=
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-many-arguments,
+    too-many-locals,
+    too-many-statements,
+    too-many-branches,
+    too-many-instance-attributes,
+    too-few-public-methods,
+    too-many-public-methods,
+    duplicate-code,
+    broad-except,
+    line-too-long,
+    invalid-name,
+    redefined-outer-name,
+    global-statement,
+    unused-argument,
+    protected-access,
+    consider-using-f-string,
+    fixme,
+    duplicate-code,
+    wildcard-import,
+    unused-wildcard-import
+
+enable=c-extension-no-member
+
+[BASIC]
+good-names=i,j,k,ex,Run,_
+bad-names=foo,bar,baz,tmp,temp
+
+[DESIGN]
+max-args=8
+max-locals=20
+max-returns=6
+max-branches=20
+max-statements=60
+max-parents=7
+max-attributes=12
+min-public-methods=0
+max-public-methods=30
+
+[FORMAT]
+max-line-length=100
+ignore-long-lines=^\s*(# )?<?https?://\S+>?$
+single-line-if-stmt=no
+
+[IMPORTS]
+deprecated-modules=
+no-docstring-rgx=^_
