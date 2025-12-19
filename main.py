@@ -1,503 +1,835 @@
 #!/usr/bin/env python3
 """
-SOCIAL SCAN - Complete Integrated System
-Main Application with All Components Synchronized
-Production-Ready with Real-time Monitoring
+HANDYOSINT - Enterprise Production Command Center v3.0
+Complete OSINT Intelligence Platform with 16-bit Vintage Aesthetics
 """
 
 import asyncio
 import sys
 import os
 import json
-import time
-from datetime import datetime
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Callable
-import threading
-import psutil
 import signal
-import atexit
-from concurrent.futures import ThreadPoolExecutor
+import sqlite3
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Any, List, Optional, Tuple
 
 # ============================================================================
-# 1. CONFIGURATION SYSTEM (First to load)
+# PATH CONFIGURATION
 # ============================================================================
 
-@dataclass
-class SystemConfig:
-    """Centralized system configuration"""
-    app_name: str = "SOCIAL SCAN"
-    version: str = "2.0.0"
-    author: str = "Cyberzilla Security"
-    license: str = "Educational Use Only"
-    
-    # Performance settings
-    max_concurrent_scans: int = 5
-    request_timeout: int = 10
-    rate_limit_per_minute: int = 30
-    retry_attempts: int = 3
-    
-    # UI Settings
-    enable_ascii_art: bool = True
-    enable_colors: bool = True
-    refresh_rate: float = 0.1  # UI refresh in seconds
-    
-    # Monitoring
-    enable_health_checks: bool = True
-    health_check_interval: int = 5  # seconds
-    log_level: str = "INFO"
-    
-    # Filesystem
-    data_dir: str = "./data"
-    logs_dir: str = "./logs"
-    reports_dir: str = "./reports"
-    
-    def __post_init__(self):
-        """Ensure directories exist"""
-        for directory in [self.data_dir, self.logs_dir, self.reports_dir]:
-            os.makedirs(directory, exist_ok=True)
+BASE_DIR = Path(__file__).parent
+sys.path.insert(0, str(BASE_DIR / 'ui'))
+sys.path.insert(0, str(BASE_DIR / 'core'))
 
 # ============================================================================
-# 2. LOGGING SYSTEM (Initialize early)
+# IMPORTS
 # ============================================================================
 
-class SystemLogger:
-    """Unified logging system"""
-    
-    COLORS = {
-        'DEBUG': '\033[90m',    # Gray
-        'INFO': '\033[96m',     # Cyan
-        'SUCCESS': '\033[92m',  # Green
-        'WARNING': '\033[93m',  # Yellow
-        'ERROR': '\033[91m',    # Red
-        'CRITICAL': '\033[41m', # Red background
-        'RESET': '\033[0m'
-    }
-    
-    def __init__(self, config: SystemConfig):
-        self.config = config
-        self.log_file = os.path.join(config.logs_dir, f"social_scan_{datetime.now().strftime('%Y%m%d')}.log")
-        self._setup_logging()
-        
-    def _setup_logging(self):
-        """Setup logging infrastructure"""
-        import logging
-        self.logger = logging.getLogger('SocialScan')
-        self.logger.setLevel(getattr(logging, self.config.log_level))
-        
-        # File handler
-        file_handler = logging.FileHandler(self.log_file)
-        file_handler.setFormatter(
-            logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        )
-        self.logger.addHandler(file_handler)
-        
-        # Console handler
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(self._ColorFormatter())
-        self.logger.addHandler(console_handler)
-    
-    class _ColorFormatter(logging.Formatter):
-        """Color formatter for console"""
-        def format(self, record):
-            levelname = record.levelname
-            if levelname in SystemLogger.COLORS:
-                record.levelname = f"{SystemLogger.COLORS[levelname]}{levelname}{SystemLogger.COLORS['RESET']}"
-            return super().format(record)
-    
-    def log(self, level: str, message: str, **kwargs):
-        """Unified logging method"""
-        getattr(self.logger, level.lower())(message, **kwargs)
-    
-    def info(self, message: str):
-        self.log('INFO', message)
-    
-    def success(self, message: str):
-        self.log('INFO', f"✅ {message}")
-    
-    def warning(self, message: str):
-        self.log('WARNING', f"⚠️  {message}")
-    
-    def error(self, message: str):
-        self.log('ERROR', f"❌ {message}")
-    
-    def debug(self, message: str):
-        self.log('DEBUG', f"🔍 {message}")
+try:
+    from ui.banner import Banner, BannerColorScheme, BannerTheme
+    from ui.menu import Menu, MenuColorScheme
+    from ui.terminal import Terminal, TerminalColorScheme
+except ImportError as e:
+    print(f"\033[91m[FATAL ERROR] Failed to import UI modules: {e}\033[0m")
+    sys.exit(1)
+
+# Optional core modules
+try:
+    from core.error_handler import ErrorHandler
+    from core.documentation import IntegratedDocumentation
+    DOCS_AVAILABLE = True
+except ImportError:
+    DOCS_AVAILABLE = False
+
+try:
+    from core.production_scanner import ProductionScanner as SocialScanApp
+    SCANNER_AVAILABLE = True
+except ImportError:
+    SCANNER_AVAILABLE = False
 
 # ============================================================================
-# 3. ASCII ART & TERMINAL UI (Synchronized Display)
+# LOGGING SETUP
 # ============================================================================
 
-class ASCIIDisplay:
-    """Synchronized ASCII Art Display System"""
-    
-    # 16-bit Color Palette (256 colors)
-    COLORS = {
-        # Primary Colors
-        'primary': '\033[38;5;27m',      # Cyber Blue
-        'secondary': '\033[38;5;46m',    # Neon Green
-        'accent': '\033[38;5;196m',      # Threat Red
-        'highlight': '\033[38;5;226m',   # Warning Yellow
-        
-        # Status Colors
-        'success': '\033[38;5;46m',
-        'error': '\033[38;5;196m',
-        'warning': '\033[38;5;226m',
-        'info': '\033[38;5;51m',
-        
-        # UI Elements
-        'border': '\033[38;5;240m',
-        'text': '\033[38;5;255m',
-        'dim': '\033[38;5;244m',
-        'reset': '\033[0m'
-    }
-    
-    def __init__(self, config: SystemConfig, logger: SystemLogger):
-        self.config = config
-        self.logger = logger
-        self.display_lock = threading.Lock()
-        self.current_screen = "main"
-        self._last_refresh = time.time()
-        
-    def display_banner(self):
-        """Display main ASCII banner (thread-safe)"""
-        with self.display_lock:
-            if not self.config.enable_ascii_art:
-                return
-            
-            banner = f"""
-{self.COLORS['primary']}
-╔═══════════════════════════════════════════════════════════════════════╗
-║                                                                       ║
-║   ███████╗ ██████╗  ██████╗██╗ █████╗ ██╗     ███████╗███████╗ █████╗ ███╗   ██╗   ║
-║   ██╔════╝██╔═══██╗██╔════╝██║██╔══██╗██║     ██╔════╝██╔════╝██╔══██╗████╗  ██║   ║
-║   ███████╗██║   ██║██║     ██║███████║██║     ███████╗█████╗  ███████║██╔██╗ ██║   ║
-║   ╚════██║██║   ██║██║     ██║██╔══██║██║     ╚════██║██╔══╝  ██╔══██║██║╚██╗██║   ║
-║   ███████║╚██████╔╝╚██████╗██║██║  ██║███████╗███████║███████╗██║  ██║██║ ╚████║   ║
-║   ╚══════╝ ╚═════╝  ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝   ║
-║                                                                       ║
-║                     C Y B E R S E C U R I T Y   O S I N T             ║
-║                                                                       ║
-╚═══════════════════════════════════════════════════════════════════════╝
-{self.COLORS['reset']}
-"""
-            print(banner)
-            self.logger.debug("Displayed ASCII banner")
-    
-    def display_status_bar(self, status_info: Dict[str, Any]):
-        """Display synchronized status bar"""
-        with self.display_lock:
-            width = 80
-            now = datetime.now().strftime("%H:%M:%S")
-            
-            # Prepare status segments
-            user = f"USER: {status_info.get('username', 'IDLE')}"
-            status = f"STATUS: {status_info.get('status', 'READY')}"
-            found = f"FOUND: {status_info.get('found', 0)}/{status_info.get('total', 0)}"
-            time_display = f"TIME: {now}"
-            
-            # Create bar
-            bar_top = f"{self.COLORS['border']}╔{'═' * (width-2)}╗{self.COLORS['reset']}"
-            bar_middle = f"{self.COLORS['border']}║{self.COLORS['reset']}" + \
-                        f"{user:<20}{status:<20}{found:<20}{time_display:<16}" + \
-                        f"{self.COLORS['border']}║{self.COLORS['reset']}"
-            bar_bottom = f"{self.COLORS['border']}╚{'═' * (width-2)}╝{self.COLORS['reset']}"
-            
-            print(f"\n{bar_top}")
-            print(bar_middle)
-            print(f"{bar_bottom}\n")
-    
-    def display_command_panel(self):
-        """Display command panel with synchronized updates"""
-        with self.display_lock:
-            panel = f"""
-{self.COLORS['border']}┌─────────────────────────────────────────────────────────────┐{self.COLORS['reset']}
-{self.COLORS['border']}│{self.COLORS['primary']} COMMAND PANEL                                                  {self.COLORS['border']}│{self.COLORS['reset']}
-{self.COLORS['border']}├─────────────────────────────────────────────────────────────┤{self.COLORS['reset']}
-{self.COLORS['border']}│{self.COLORS['text']}   [S]can username      [M]ulti scan       [H]istory           {self.COLORS['border']}│{self.COLORS['reset']}
-{self.COLORS['border']}│{self.COLORS['text']}   [P]latforms list     [C]onfiguration    [D]ashboard         {self.COLORS['border']}│{self.COLORS['reset']}
-{self.COLORS['border']}│{self.COLORS['text']}   [E]xport results     [V]alidate system  [Q]uit              {self.COLORS['border']}│{self.COLORS['reset']}
-{self.COLORS['border']}└─────────────────────────────────────────────────────────────┘{self.COLORS['reset']}
-"""
-            print(panel)
-    
-    def display_scan_progress(self, platform: str, status: str, details: str = ""):
-        """Display scan progress with synchronized updates"""
-        with self.display_lock:
-            icons = {
-                'scanning': f"{self.COLORS['info']}🔄",
-                'found': f"{self.COLORS['success']}✅",
-                'not_found': f"{self.COLORS['dim']}❌",
-                'error': f"{self.COLORS['error']}⚠️",
-                'rate_limited': f"{self.COLORS['warning']}⏸️"
-            }
-            
-            icon = icons.get(status, icons['scanning'])
-            platform_text = f"{platform:.<20}"
-            status_text = f"{status:.<15}"
-            
-            line = f"{icon} {self.COLORS['text']}{platform_text}{self.COLORS[status.lower()]}{status_text}{self.COLORS['dim']}{details}"
-            
-            # Use carriage return for in-place updates
-            if status == 'scanning':
-                print(f"\r{line}", end='', flush=True)
-            else:
-                print(f"\r{line}")
-    
-    def clear_screen(self):
-        """Clear screen synchronized"""
-        with self.display_lock:
-            os.system('cls' if os.name == 'nt' else 'clear')
+LOG_DIR = BASE_DIR / 'logs'
+LOG_DIR.mkdir(exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_DIR / f'handyosint_{datetime.now().strftime("%Y%m%d")}.log'),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger('HandyOsint')
 
 # ============================================================================
-# 4. SCANNER ENGINE (Core Business Logic)
+# DATABASE MANAGER
 # ============================================================================
 
-class PlatformRegistry:
-    """Centralized platform registry"""
+class DatabaseManager:
+    """SQLite database operations"""
     
-    PLATFORMS = {
-        'github': {
-            'url': 'https://github.com/{}',
-            'check_method': 'status_code',
-            'rate_limit': 30,
-            'headers': {'Accept': 'application/vnd.github.v3+json'}
-        },
-        'twitter': {
-            'url': 'https://twitter.com/{}',
-            'check_method': 'content_analysis',
-            'rate_limit': 15,
-            'headers': {'x-twitter-client-language': 'en'}
-        },
-        'instagram': {
-            'url': 'https://instagram.com/{}',
-            'check_method': 'status_code',
-            'rate_limit': 10
-        },
-        'linkedin': {
-            'url': 'https://linkedin.com/in/{}',
-            'check_method': 'pattern_matching',
-            'rate_limit': 5
-        },
-        'facebook': {'url': 'https://facebook.com/{}', 'rate_limit': 5},
-        'reddit': {'url': 'https://reddit.com/user/{}', 'rate_limit': 10},
-        'tiktok': {'url': 'https://tiktok.com/@{}', 'rate_limit': 5},
-        'youtube': {'url': 'https://youtube.com/@{}', 'rate_limit': 10},
-        'twitch': {'url': 'https://twitch.tv/{}', 'rate_limit': 10},
-        'telegram': {'url': 'https://t.me/{}', 'rate_limit': 10},
-        'discord': {'url': 'https://discord.com/users/{}', 'rate_limit': 5},
-        'snapchat': {'url': 'https://snapchat.com/add/{}', 'rate_limit': 3},
-        'pinterest': {'url': 'https://pinterest.com/{}', 'rate_limit': 5},
-        'medium': {'url': 'https://medium.com/@{}', 'rate_limit': 10},
-        'devto': {'url': 'https://dev.to/{}', 'rate_limit': 20},
-        'keybase': {'url': 'https://keybase.io/{}', 'rate_limit': 20},
-        'gravatar': {'url': 'https://gravatar.com/{}', 'rate_limit': 30},
-        'aboutme': {'url': 'https://about.me/{}', 'rate_limit': 20},
-        'gitlab': {'url': 'https://gitlab.com/{}', 'rate_limit': 20},
-        'bitbucket': {'url': 'https://bitbucket.org/{}', 'rate_limit': 20}
-    }
-
-class ScannerEngine:
-    """Core scanning engine with synchronization"""
+    def __init__(self):
+        self.db_path = BASE_DIR / 'data' / 'social_scan.db'
+        self.db_path.parent.mkdir(exist_ok=True)
+        self._init_database()
     
-    def __init__(self, config: SystemConfig, logger: SystemLogger, display: ASCIIDisplay):
-        self.config = config
-        self.logger = logger
-        self.display = display
-        self.platforms = PlatformRegistry.PLATFORMS
-        self.scan_lock = threading.RLock()
-        self.active_scans = 0
-        self.max_concurrent = config.max_concurrent_scans
-        
-        # Statistics
-        self.stats = {
-            'total_scans': 0,
-            'profiles_found': 0,
-            'errors': 0,
-            'rate_limited': 0
-        }
-        
-        # Rate limiting
-        self.rate_limiter = RateLimiter(config.rate_limit_per_minute)
-        
-        # HTTP client
-        self.http_client = HTTPClient(config, logger)
-        
-        self.logger.success("Scanner engine initialized")
-    
-    async def scan_username(self, username: str, platforms: List[str] = None) -> Dict[str, Any]:
-        """Scan username across platforms (thread-safe)"""
-        with self.scan_lock:
-            if self.active_scans >= self.max_concurrent:
-                raise Exception(f"Maximum concurrent scans reached ({self.max_concurrent})")
-            
-            self.active_scans += 1
-            self.stats['total_scans'] += 1
-        
+    def _init_database(self) -> None:
+        """Initialize database schema"""
         try:
-            self.logger.info(f"Starting scan for username: {username}")
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
             
-            if not platforms:
-                platforms = list(self.platforms.keys())
+            # Scan results table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS scan_results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    target TEXT NOT NULL,
+                    platform TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    url TEXT,
+                    details TEXT,
+                    scan_type TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
             
-            results = {
-                'username': username,
-                'timestamp': datetime.now().isoformat(),
-                'platforms': {},
-                'statistics': {
-                    'scanned': 0,
-                    'found': 0,
-                    'errors': 0,
-                    'rate_limited': 0
-                }
-            }
+            # Batch jobs table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS batch_jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    targets TEXT NOT NULL,
+                    status TEXT DEFAULT 'pending',
+                    total_scans INTEGER,
+                    completed_scans INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP
+                )
+            ''')
             
-            # Scan platforms concurrently with semaphore
-            semaphore = asyncio.Semaphore(5)  # Max 5 concurrent requests
+            # Create indexes
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_target ON scan_results(target)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON scan_results(timestamp)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_platform ON scan_results(platform)')
             
-            async def scan_platform(platform):
-                async with semaphore:
-                    return await self._scan_single_platform(platform, username)
-            
-            # Create and run tasks
-            tasks = [scan_platform(p) for p in platforms]
-            platform_results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Process results
-            for platform, result in zip(platforms, platform_results):
-                if isinstance(result, Exception):
-                    results['platforms'][platform] = {
-                        'status': 'error',
-                        'error': str(result)
-                    }
-                    results['statistics']['errors'] += 1
-                    self.stats['errors'] += 1
-                else:
-                    results['platforms'][platform] = result
-                    results['statistics']['scanned'] += 1
-                    
-                    if result['status'] == 'found':
-                        results['statistics']['found'] += 1
-                        self.stats['profiles_found'] += 1
-                    elif result['status'] == 'rate_limited':
-                        results['statistics']['rate_limited'] += 1
-                        self.stats['rate_limited'] += 1
-            
-            self.logger.success(f"Scan completed for {username}: {results['statistics']['found']} profiles found")
-            return results
-            
-        finally:
-            with self.scan_lock:
-                self.active_scans -= 1
-    
-    async def _scan_single_platform(self, platform: str, username: str) -> Dict[str, Any]:
-        """Scan single platform"""
-        platform_config = self.platforms.get(platform)
-        if not platform_config:
-            raise ValueError(f"Unknown platform: {platform}")
-        
-        # Check rate limit
-        if not self.rate_limiter.can_request(platform):
-            return {
-                'platform': platform,
-                'status': 'rate_limited',
-                'timestamp': datetime.now().isoformat()
-            }
-        
-        # Update display
-        self.display.display_scan_progress(platform, 'scanning')
-        
-        try:
-            url = platform_config['url'].format(username)
-            
-            # Make request
-            response = await self.http_client.request(
-                url=url,
-                platform=platform,
-                headers=platform_config.get('headers', {})
-            )
-            
-            # Analyze response
-            status = self._analyze_response(response, platform, username)
-            
-            # Update display with result
-            self.display.display_scan_progress(platform, status, url)
-            
-            return {
-                'platform': platform,
-                'url': url,
-                'status': status,
-                'status_code': response.get('status_code', 0),
-                'response_time': response.get('response_time', 0),
-                'timestamp': datetime.now().isoformat()
-            }
-            
+            conn.commit()
+            conn.close()
+            logger.info("Database initialized successfully")
         except Exception as e:
-            self.display.display_scan_progress(platform, 'error', str(e))
-            raise
+            logger.error(f"Database initialization error: {e}")
     
-    def _analyze_response(self, response: Dict, platform: str, username: str) -> str:
-        """Analyze HTTP response for username presence"""
-        status_code = response.get('status_code', 0)
-        content = response.get('content', '')
+    def save_result(self, target: str, platform: str, status: str, 
+                   url: str = "", details: Dict = None, scan_type: str = "") -> bool:
+        """Save scan result"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT INTO scan_results 
+                (timestamp, target, platform, status, url, details, scan_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                datetime.now().isoformat(),
+                target,
+                platform,
+                status,
+                url,
+                json.dumps(details or {}),
+                scan_type
+            ))
+            
+            conn.commit()
+            conn.close()
+            logger.info(f"Saved result: {target} on {platform}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save result: {e}")
+            return False
+    
+    def get_scan_history(self, limit: int = 50) -> List[Dict]:
+        """Retrieve scan history"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, timestamp, target, platform, status, url, scan_type
+                FROM scan_results
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (limit,))
+            
+            results = []
+            for row in cursor.fetchall():
+                results.append({
+                    'id': row[0],
+                    'timestamp': row[1],
+                    'target': row[2],
+                    'platform': row[3],
+                    'status': row[4],
+                    'url': row[5],
+                    'scan_type': row[6]
+                })
+            
+            conn.close()
+            return results
+        except Exception as e:
+            logger.error(f"Failed to retrieve history: {e}")
+            return []
+    
+    def search_results(self, target: str) -> List[Dict]:
+        """Search results by target"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, timestamp, target, platform, status, url, scan_type
+                FROM scan_results
+                WHERE target LIKE ? OR url LIKE ?
+                ORDER BY created_at DESC
+            ''', (f"%{target}%", f"%{target}%"))
+            
+            results = []
+            for row in cursor.fetchall():
+                results.append({
+                    'id': row[0],
+                    'timestamp': row[1],
+                    'target': row[2],
+                    'platform': row[3],
+                    'status': row[4],
+                    'url': row[5],
+                    'scan_type': row[6]
+                })
+            
+            conn.close()
+            return results
+        except Exception as e:
+            logger.error(f"Search failed: {e}")
+            return []
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get database statistics"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT COUNT(*) FROM scan_results")
+            total_scans = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM scan_results WHERE status = 'FOUND'")
+            found_profiles = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(DISTINCT target) FROM scan_results")
+            unique_targets = cursor.fetchone()[0]
+            
+            cursor.execute('''
+                SELECT platform, COUNT(*) as count 
+                FROM scan_results 
+                GROUP BY platform
+            ''')
+            platforms = dict(cursor.fetchall())
+            
+            conn.close()
+            
+            return {
+                'total_scans': total_scans,
+                'found_profiles': found_profiles,
+                'unique_targets': unique_targets,
+                'platforms': platforms
+            }
+        except Exception as e:
+            logger.error(f"Statistics retrieval failed: {e}")
+            return {}
+
+
+# ============================================================================
+# COMMAND CENTER
+# ============================================================================
+
+class HandyOsintCommandCenter:
+    """Enterprise command center"""
+    
+    def __init__(self):
+        """Initialize command center"""
+        self.banner = Banner(BannerColorScheme.GREEN_PLASMA)
+        self.menu = Menu("COMMAND CENTER", MenuColorScheme.GREEN_PLASMA)
+        self.terminal = Terminal(TerminalColorScheme.GREEN_PLASMA)
         
-        # Platform-specific detection logic
-        detectors = {
-            'github': lambda: status_code == 200 and '/search?' not in response.get('final_url', ''),
-            'twitter': lambda: status_code == 200 and f'@{username}' in content,
-            'instagram': lambda: status_code == 200 and response.get('final_url', '').endswith(f'/{username}/'),
-            'default': lambda: status_code == 200 and '404' not in content.lower() and 'not found' not in content.lower()
+        self.db = DatabaseManager()
+        self.scanner = SocialScanApp() if SCANNER_AVAILABLE else None
+        
+        self.running = False
+        self.start_time = None
+        self.session_scans = 0
+        
+        self._setup_menu()
+        self._setup_signal_handlers()
+        
+        logger.info("Command center initialized")
+    
+    def _setup_signal_handlers(self) -> None:
+        """Setup signal handlers for graceful shutdown"""
+        def signal_handler(sig, frame):
+            print(f"\n\033[93m[{datetime.now().strftime('%H:%M:%S')}] Shutting down...\033[0m")
+            self.running = False
+        
+        signal.signal(signal.SIGINT, signal_handler)
+    
+    def _setup_menu(self) -> None:
+        """Setup main menu items"""
+        self.menu.add_item(
+            "1", "🔍 Single Target Scan", 
+            "Deep scan single username across platforms"
+        )
+        self.menu.add_item(
+            "2", "📁 Batch Operations",
+            "Process multiple targets simultaneously"
+        )
+        self.menu.add_item(
+            "3", "📊 Intelligence Dashboard",
+            "View analytics and statistics"
+        )
+        self.menu.add_item(
+            "4", "📋 Scan History",
+            "Review past scanning operations"
+        )
+        self.menu.add_item(
+            "5", "💾 Export Data",
+            "Export findings and reports"
+        )
+        self.menu.add_item(
+            "6", "⚙️  Configuration",
+            "System settings and parameters"
+        )
+        self.menu.add_item(
+            "7", "🛠️  System Validation",
+            "Diagnostic checks and health status"
+        )
+        self.menu.add_item(
+            "8", "📘 Documentation",
+            "Command center manual and guides"
+        )
+        self.menu.add_item(
+            "0", "⏹️  Exit System",
+            "Terminate command center"
+        )
+    
+    async def initialize(self) -> bool:
+        """Initialize and boot command center"""
+        try:
+            self.terminal.clear()
+            self.terminal.boot_sequence()
+            await asyncio.sleep(0.5)
+            
+            self.terminal.clear()
+            self.banner.display("main", animate=True)
+            await asyncio.sleep(1)
+            
+            # System status
+            status_info = [
+                f"Scanner: {'✅ Available' if SCANNER_AVAILABLE else '❌ Not Available'}",
+                f"Database: ✅ Connected",
+                f"Documentation: {'✅ Available' if DOCS_AVAILABLE else '⚠️ Limited'}",
+                f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            ]
+            
+            self.menu.display_box("SYSTEM STATUS", status_info)
+            
+            self.running = True
+            self.start_time = datetime.now()
+            
+            logger.info("Command center initialized successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Initialization error: {e}")
+            self.menu.display_error(f"Initialization failed: {e}")
+            return False
+    
+    async def handle_single_scan(self) -> None:
+        """Handle single target scan"""
+        self.terminal.clear()
+        self.banner.display("scan")
+        
+        self.menu.display_info("SINGLE TARGET SCAN - Username Intelligence")
+        
+        username = await self.menu.prompt("ENTER TARGET USERNAME (or 'back' to return)")
+        
+        if not username or username.lower() in ['back', 'exit', '0']:
+            return
+        
+        if not self.scanner:
+            self.menu.display_error("Scanner not available.")
+            await self.menu.prompt("PRESS ENTER TO CONTINUE")
+            return
+
+        # Scan
+        self.terminal.write_info(f"\nScanning: {username}")
+        
+        try:
+            async with self.scanner as scanner_instance:
+                result = await scanner_instance.scan_username(username)
+                await self._display_scan_results(result)
+            
+                # Save to database
+                for platform_id, data in result.platforms.items():
+                    self.db.save_result(
+                        target=username,
+                        platform=data.platform,
+                        status=data.status,
+                        url=data.url,
+                        scan_type='USERNAME_SCAN'
+                    )
+            
+            self.session_scans += 1
+            self.menu.display_success("Scan completed and saved")
+        except Exception as e:
+            logger.error(f"Scan error: {e}")
+            self.menu.display_error(f"Scan failed: {e}")
+        
+        await self.menu.prompt("PRESS ENTER TO CONTINUE")
+    
+    async def _display_scan_results(self, result) -> None:
+        """Display scan results"""
+        self.terminal.clear()
+        self.banner.display("scan")
+        
+        headers = ["Platform", "Status", "URL"]
+        rows = []
+        
+        for platform_id, data in result.platforms.items():
+            icon = "✓" if data.found else "✗"
+            rows.append([
+                data.platform,
+                f"{icon} {data.status}",
+                data.url[:40] + "..." if len(data.url) > 40 else data.url
+            ])
+        
+        self.menu.display_table(headers, rows, f"SCAN RESULTS - {result.username}")
+        
+        summary = [
+            f"Target: {result.username}",
+            f"Profiles Found: {result.profiles_found}/{result.total_platforms}",
+            f"Timestamp: {result.timestamp}",
+        ]
+        
+        self.menu.display_box("SUMMARY", summary)
+    
+    async def handle_batch_operations(self) -> None:
+        """Handle batch scanning"""
+        self.terminal.clear()
+        self.banner.display("batch")
+        
+        self.menu.display_info("BATCH OPERATIONS - Multiple Target Intelligence")
+        
+        # Get targets
+        targets_input = await self.menu.prompt("ENTER TARGETS (comma-separated) or 'back'")
+        
+        if not targets_input or targets_input.lower() in ['back', 'exit', '0']:
+            return
+        
+        targets = [t.strip() for t in targets_input.split(',') if t.strip()]
+        
+        if not targets:
+            self.menu.display_warning("No valid targets entered")
+            await self.menu.prompt("PRESS ENTER TO CONTINUE")
+            return
+        
+        if not self.scanner:
+            self.menu.display_error("Scanner not available.")
+            await self.menu.prompt("PRESS ENTER TO CONTINUE")
+            return
+        
+        self.menu.display_info(f"Processing {len(targets)} targets...")
+        
+        try:
+            with self.terminal.progress_bar(len(targets), "Batch Scanning...") as progress:
+                task = progress.add_task("scan", total=len(targets))
+                async with self.scanner as scanner_instance:
+                    for target in targets:
+                        result = await scanner_instance.scan_username(target)
+                        
+                        for platform_id, data in result.platforms.items():
+                            self.db.save_result(
+                                target=target,
+                                platform=data.platform,
+                                status=data.status,
+                                url=data.url,
+                                scan_type='BATCH_SCAN'
+                            )
+                        
+                        self.session_scans += 1
+                        progress.update(task, advance=1)
+            
+            self.menu.display_success(f"Batch scan completed: {len(targets)} targets processed")
+        except Exception as e:
+            logger.error(f"Batch scan error: {e}")
+            self.menu.display_error(f"Batch scan failed: {e}")
+        
+        await self.menu.prompt("PRESS ENTER TO CONTINUE")
+    
+    async def handle_dashboard(self) -> None:
+        """Display intelligence dashboard"""
+        self.terminal.clear()
+        self.banner.display("dashboard")
+        
+        self.menu.display_info("INTELLIGENCE DASHBOARD")
+        
+        # Calculate uptime
+        uptime_seconds = int((datetime.now() - self.start_time).total_seconds())
+        uptime_minutes = uptime_seconds // 60
+        uptime_hours = uptime_minutes // 60
+        uptime_str = f"{uptime_hours}h {uptime_minutes % 60}m"
+        
+        # Get statistics
+        stats = self.db.get_statistics()
+        
+        # Display stats table
+        headers = ["Metric", "Value", "Status"]
+        rows = [
+            ["System Uptime", uptime_str, "🟢"],
+            ["Scans This Session", str(self.session_scans), "🟢"],
+            ["Total Database Scans", str(stats.get('total_scans', 0)), "📊"],
+            ["Profiles Found (DB)", str(stats.get('found_profiles', 0)), "✓"],
+            ["Unique Targets (DB)", str(stats.get('unique_targets', 0)), "🎯"],
+        ]
+        
+        self.menu.display_table(headers, rows, "SYSTEM STATISTICS")
+        
+        # Platform breakdown
+        if stats.get('platforms'):
+            platform_rows = []
+            for platform, count in stats['platforms'].items():
+                platform_rows.append([platform, str(count)])
+            
+            self.menu.display_table(["Platform", "Scans"], platform_rows, "PLATFORM BREAKDOWN")
+        
+        await self.menu.prompt("PRESS ENTER TO CONTINUE")
+    
+    async def handle_scan_history(self) -> None:
+        """Display scan history"""
+        self.terminal.clear()
+        self.banner.display("history")
+        
+        self.menu.display_info("SCAN HISTORY")
+        
+        history = self.db.get_scan_history(50)
+        
+        if not history:
+            self.menu.display_warning("No scan history available")
+            await self.menu.prompt("PRESS ENTER TO CONTINUE")
+            return
+        
+        headers = ["#", "Target", "Platform", "Status", "Date"]
+        rows = []
+        
+        for i, record in enumerate(history[:20], 1):
+            timestamp = datetime.fromisoformat(record['timestamp']).strftime('%Y-%m-%d %H:%M')
+            rows.append([
+                str(i),
+                record['target'][:15],
+                record['platform'][:12],
+                record['status'],
+                timestamp
+            ])
+        
+        self.menu.display_table(headers, rows, f"RECENT SCANS (Total: {len(history)})")
+        
+        # Search option
+        search = await self.menu.prompt("SEARCH BY TARGET (or 'back')")
+        
+        if search and search.lower() not in ['back', '0']:
+            results = self.db.search_results(search)
+            
+            if results:
+                search_rows = []
+                for i, record in enumerate(results[:20], 1):
+                    timestamp = datetime.fromisoformat(record['timestamp']).strftime('%Y-%m-%d %H:%M')
+                    search_rows.append([
+                        str(i),
+                        record['target'],
+                        record['platform'],
+                        record['status'],
+                        timestamp
+                    ])
+                
+                self.menu.display_table(headers, search_rows, f"SEARCH RESULTS - {search}")
+        
+        await self.menu.prompt("PRESS ENTER TO CONTINUE")
+    
+    async def handle_export(self) -> None:
+        """Handle data export"""
+        self.terminal.clear()
+        self.banner.display("main")
+        
+        self.menu.display_info("DATA EXPORT")
+        
+        export_options = {
+            "1": "Export all scan history",
+            "2": "Export statistics report",
+            "3": "Export database backup",
+            "0": "Return to main menu"
         }
         
-        detector = detectors.get(platform, detectors['default'])
-        return 'found' if detector() else 'not_found'
-
-# ============================================================================
-# 5. RATE LIMITING SYSTEM
-# ============================================================================
-
-class RateLimiter:
-    """Synchronized rate limiting"""
-    
-    def __init__(self, requests_per_minute: int):
-        self.requests_per_minute = requests_per_minute
-        self.requests = {}
-        self.lock = threading.RLock()
+        for key, option in export_options.items():
+            print(f"  [{key}] {option}")
         
-    def can_request(self, platform: str) -> bool:
-        """Check if request is allowed"""
-        with self.lock:
-            now = time.time()
-            minute_ago = now - 60
-            
-            # Clean old requests
-            if platform in self.requests:
-                self.requests[platform] = [
-                    req_time for req_time in self.requests[platform]
-                    if req_time > minute_ago
-                ]
-            else:
-                self.requests[platform] = []
-            
-            # Check limit
-            if len(self.requests[platform]) >= self.requests_per_minute:
-                return False
-            
-            # Add request
-            self.requests[platform].append(now)
-            return True
-
-# ============================================================================
-# 6. HTTP CLIENT (Synchronized)
-# ============================================================================
-
-class HTTPClient:
-    """Synchronized HTTP client with connection pooling"""
-    
-    def __init__(self, config: SystemConfig, logger: SystemLogger):
-        self.config = config
-        self.logger = logger
-        self.session = None
-        self.session_lock = threading.Lock()
+        choice = await self.menu.prompt("SELECT EXPORT TYPE")
         
-    async def request(self, url: str)
+        if choice == "1":
+            await self._export_history()
+        elif choice == "2":
+            await self._export_statistics()
+        elif choice == "3":
+            await self._export_backup()
+        
+        if choice in ["1", "2", "3"]:
+            await self.menu.prompt("PRESS ENTER TO CONTINUE")
+    
+    async def _export_history(self) -> None:
+        """Export scan history to JSON"""
+        try:
+            history = self.db.get_scan_history(999)
+            export_file = BASE_DIR / 'exports' / f'scan_history_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+            export_file.parent.mkdir(exist_ok=True)
+            
+            with open(export_file, 'w') as f:
+                json.dump(history, f, indent=2)
+            
+            self.menu.display_success(f"History exported to {export_file.name}")
+            logger.info(f"History exported to {export_file}")
+        except Exception as e:
+            logger.error(f"Export error: {e}")
+            self.menu.display_error(f"Export failed: {e}")
+    
+    async def _export_statistics(self) -> None:
+        """Export statistics report"""
+        try:
+            stats = self.db.get_statistics()
+            report_file = BASE_DIR / 'reports' / f'report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+            report_file.parent.mkdir(exist_ok=True)
+            
+            report = {
+                'generated': datetime.now().isoformat(),
+                'statistics': stats,
+                'session_scans': self.session_scans
+            }
+            
+            with open(report_file, 'w') as f:
+                json.dump(report, f, indent=2)
+            
+            self.menu.display_success(f"Report exported to {report_file.name}")
+            logger.info(f"Report exported to {report_file}")
+        except Exception as e:
+            logger.error(f"Report generation error: {e}")
+            self.menu.display_error(f"Report generation failed: {e}")
+    
+    async def _export_backup(self) -> None:
+        """Create database backup"""
+        try:
+            import shutil
+            backup_file = BASE_DIR / 'backups' / f'backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.db'
+            backup_file.parent.mkdir(exist_ok=True)
+            
+            shutil.copy(self.db.db_path, backup_file)
+            
+            self.menu.display_success(f"Database backed up to {backup_file.name}")
+            logger.info(f"Database backed up to {backup_file}")
+        except Exception as e:
+            logger.error(f"Backup error: {e}")
+            self.menu.display_error(f"Backup failed: {e}")
+    
+    async def handle_configuration(self) -> None:
+        """Handle configuration options"""
+        self.terminal.clear()
+        self.banner.display("main")
+        
+        self.menu.display_info("CONFIGURATION")
+        
+        config_menu = {
+            "1": "Color Scheme",
+            "2": "Theme",
+            "3": "Animation Settings",
+            "4": "Scanner Timeout",
+            "0": "Return to main menu"
+        }
+        
+        for key, option in config_menu.items():
+            print(f"  [{key}] {option}")
+        
+        choice = await self.menu.prompt("SELECT OPTION")
+        
+        if choice == "1":
+            await self._select_color_scheme()
+        elif choice == "2":
+            await self._select_theme()
+        elif choice == "3":
+            self.menu.display_info("Animation: " + ("Enabled" if self.banner.animations_enabled else "Disabled"))
+            self.banner.set_animation(not self.banner.animations_enabled)
+        
+        await self.menu.prompt("PRESS ENTER TO CONTINUE")
+    
+    async def _select_color_scheme(self) -> None:
+        """Select color scheme"""
+        schemes = {
+            "1": ("Green Plasma", BannerColorScheme.GREEN_PLASMA, MenuColorScheme.GREEN_PLASMA),
+            "2": ("Amber Mono", BannerColorScheme.AMBER_MONO, MenuColorScheme.AMBER_MONO),
+            "3": ("Cool Blue", BannerColorScheme.COOL_BLUE, MenuColorScheme.COOL_BLUE),
+            "4": ("Monochrome", BannerColorScheme.MONOCHROME, MenuColorScheme.MONOCHROME),
+        }
+        
+        for key, (name, _, _) in schemes.items():
+            print(f"  [{key}] {name}")
+        
+        choice = await self.menu.prompt("SELECT SCHEME")
+        
+        if choice in schemes:
+            name, banner_scheme, menu_scheme = schemes[choice]
+            self.banner.change_scheme(banner_scheme)
+            self.menu.change_scheme(menu_scheme)
+            self.menu.display_success(f"Switched to {name}")
+            
+    async def _select_theme(self) -> None:
+        """Select banner theme"""
+        themes = {
+            "1": ("Modern", BannerTheme.MODERN),
+            "2": ("Vintage", BannerTheme.VINTAGE),
+        }
+        
+        for key, (name, _) in themes.items():
+            print(f"  [{key}] {name}")
+        
+        choice = await self.menu.prompt("SELECT THEME")
+        
+        if choice in themes:
+            name, theme = themes[choice]
+            self.banner.change_theme(theme)
+            self.menu.display_success(f"Switched to {name} theme")
+    
+    async def handle_system_validation(self) -> None:
+        """System validation and health check"""
+        self.terminal.clear()
+        self.banner.display("main")
+        
+        self.menu.display_info("SYSTEM VALIDATION")
+        
+        checks = {
+            "UI Modules": True,
+            "Database": True,
+            "Scanner": SCANNER_AVAILABLE,
+            "Documentation": DOCS_AVAILABLE,
+            "Logging": True,
+        }
+        
+        status_rows = []
+        for check, available in checks.items():
+            status = "✅ OK" if available else "⚠️  Limited"
+            status_rows.append([check, status])
+        
+        self.menu.display_table(["Component", "Status"], status_rows, "SYSTEM HEALTH")
+        
+        await self.menu.prompt("PRESS ENTER TO CONTINUE")
+    
+    async def handle_documentation(self) -> None:
+        """Display documentation"""
+        self.terminal.clear()
+        self.banner.display("main")
+        
+        self.menu.display_info("DOCUMENTATION")
+        
+        docs = [
+            "GETTING STARTED:",
+            "  1. Use Single Target Scan for individual usernames",
+            "  2. Use Batch Operations for multiple targets",
+            "  3. View results in Scan History",
+            "",
+            "FEATURES:",
+            "  • Cross-platform username search",
+            "  • Batch processing",
+            "  • Complete scan history",
+            "  • Export functionality",
+            "  • Statistics dashboard",
+            "",
+            "KEYBOARD SHORTCUTS:",
+            "  • Ctrl+C: Exit current operation",
+            "  • 0: Return to main menu",
+            "  • back/exit: Cancel operation",
+        ]
+        
+        self.menu.display_box("HELP & DOCUMENTATION", docs)
+        
+        await self.menu.prompt("PRESS ENTER TO CONTINUE")
+    
+    async def run(self) -> None:
+        """Main command center loop"""
+        if not await self.initialize():
+            return
+        
+        while self.running:
+            self.terminal.clear()
+            self.banner.display("main")
+            self.menu.display()
+            
+            choice = await self.menu.prompt("SELECT OPTION")
+            
+            try:
+                if choice == "1":
+                    await self.handle_single_scan()
+                elif choice == "2":
+                    await self.handle_batch_operations()
+                elif choice == "3":
+                    await self.handle_dashboard()
+                elif choice == "4":
+                    await self.handle_scan_history()
+                elif choice == "5":
+                    await self.handle_export()
+                elif choice == "6":
+                    await self.handle_configuration()
+                elif choice == "7":
+                    await self.handle_system_validation()
+                elif choice == "8":
+                    await self.handle_documentation()
+                elif choice == "0":
+                    self.running = False
+                else:
+                    self.menu.display_warning("Invalid selection")
+                    await asyncio.sleep(1)
+            except Exception as e:
+                logger.error(f"Command execution error: {e}")
+                self.menu.display_error(f"Error: {e}")
+                await asyncio.sleep(2)
+        
+        # Shutdown sequence
+        self.terminal.clear()
+        self.terminal.shutdown_sequence()
+        logger.info(f"Session ended. Total scans: {self.session_scans}")
+
+
+# ============================================================================
+# MAIN ENTRY POINT
+# ============================================================================
+
+async def main() -> None:
+    """Application entry point"""
+    command_center = HandyOsintCommandCenter()
+    await command_center.run()
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n\n\033[93m[SYSTEM] Interrupted by user\033[0m")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n\033[91m[FATAL ERROR] {e}\033[0m")
+        logger.critical(f"Fatal error: {e}", exc_info=True)
+        sys.exit(1)

@@ -1,0 +1,85 @@
+# HandyOsint Production Configuration
+# ===================================
+
+app:
+  name: "HandyOsint"
+  version: "2.4.0"
+  author: "Cyberzilla Security"
+  license: "Educational Use Only"
+
+performance:
+  max_concurrent_scans: 3
+  max_concurrent_requests: 5
+  request_timeout: 30
+  rate_limit_requests: 20
+  rate_limit_window: 60
+  retry_attempts: 3
+  retry_delay: 2.0
+
+scanner:
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+  respect_robots_txt: true
+  follow_redirects: true
+  verify_ssl: true
+  
+  # Platform configurations
+  platforms:
+    twitter:
+      enabled: true
+      timeout: 10
+      check_method: "status_code"
+      
+    github:
+      enabled: true
+      timeout: 10
+      check_method: "status_code"
+      
+    instagram:
+      enabled: true
+      timeout: 15
+      check_method: "status_code"
+      
+    # Add more platforms as needed
+
+database:
+  path: "./data/social_scan.db"
+  backup_interval: 86400  # 24 hours in seconds
+  max_history_days: 30
+
+logging:
+  level: "INFO"
+  file: "./logs/command_center.log"
+  max_size_mb: 10
+  backup_count: 5
+
+ui:
+  enable_colors: true
+  enable_animations: true
+  color_scheme: "16bit_green"
+  ascii_art: true
+
+export:
+  formats: ["json", "csv", "html"]
+  default_format: "json"
+  timestamp_format: "%Y%m%d_%H%M%S"
+  directory: "./reports"
+
+security:
+  enable_input_validation: true
+  max_username_length: 50
+  allowed_chars: "a-zA-Z0-9_-."
+  sanitize_input: true
+
+monitoring:
+  enable_health_checks: true
+  health_check_interval: 300  # 5 minutes in seconds
+  resource_warnings:
+    cpu_percent: 80
+    memory_percent: 85
+    disk_percent: 90
+
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  ttl_seconds: 3600 # Default TTL for cached items (1 hour)
