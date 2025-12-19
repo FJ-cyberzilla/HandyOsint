@@ -210,6 +210,25 @@ pending
 Not scanned yet
 This scanner is production-ready and can handle real-world OSINT operations with reliability and performance! 🚀
 
+### API Layer Enhancements
+
+The new REST API layer provides programmability and integration capabilities with a strong focus on security and performance.
+
+#### Security First
+*   **TLS (HTTPS)**: Enforced for all API endpoints to ensure secure communication.
+*   **Authentication**: Utilizes OAuth 2.0 with OpenID Connect as the standard for user authentication, providing a robust and secure access mechanism.
+*   **Principle of Least Privilege**: API design ensures users can only access their own scan results, preventing unauthorized data access.
+*   **UUIDs for Identifiers**: Scan result IDs use UUIDs instead of auto-incrementing integers to mitigate data scraping risks.
+
+#### API Design
+*   **Structured Endpoints**: Endpoints are logically organized (e.g., \`GET /api/v1/scan/{username}\`) for clarity and ease of use.
+*   **Rate Limiting**: Implemented per user or API key (via \`X-RateLimit-Limit\` headers) to protect the backend and external services from abuse and ensure fair usage.
+*   **Integration Path**: The core \`HandyOsintCommandCenter\` logic (now encapsulated within \`ProductionScanner\`) serves as the business layer behind API endpoints, managed by a modern framework like FastAPI.
+
+#### Professional API Documentation
+*   **Auto-generated Docs**: The API features auto-generated interactive documentation (e.g., Swagger UI/ReDoc via FastAPI) to facilitate developer adoption and integration.
+*   **Clarity and Detail**: Documentation clearly outlines available endpoints, request/response formats, and authentication requirements.
+
 ### Error Handling 
 Exception Hierarchy
 ✅ HandyOsintException - Base exception
