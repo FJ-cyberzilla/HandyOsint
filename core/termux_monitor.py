@@ -8,23 +8,25 @@ import sys
 import time
 from typing import Dict, Any, Optional
 
+
 class TermuxMonitor:
     """Lightweight system monitoring for Termux"""
-    
+
     @staticmethod
     def cpu_usage() -> float:
         """Get CPU usage percentage (simplified for Termux)"""
         try:
             # Try psutil first
             import psutil
+
             return psutil.cpu_percent(interval=0.1)
         except:
             # Fallback to reading /proc/stat if accessible
             try:
-                with open('/proc/stat', 'r') as f:
+                with open("/proc/stat", "r") as f:
                     lines = f.readlines()
                 for line in lines:
-                    if line.startswith('cpu '):
+                    if line.startswith("cpu "):
                         parts = line.split()
                         # Simple calculation
                         total = sum(int(p) for p in parts[1:])
@@ -33,63 +35,60 @@ class TermuxMonitor:
             except:
                 pass
             return 50.0  # Default fallback
-    
+
     @staticmethod
     def memory_usage() -> Dict[str, Any]:
         """Get memory usage information"""
         try:
             import psutil
+
             mem = psutil.virtual_memory()
             return {
-                'percent': mem.percent,
-                'total': mem.total,
-                'available': mem.available,
-                'used': mem.used
+                "percent": mem.percent,
+                "total": mem.total,
+                "available": mem.available,
+                "used": mem.used,
             }
         except:
             # Fallback for Termux
             try:
-                with open('/proc/meminfo', 'r') as f:
+                with open("/proc/meminfo", "r") as f:
                     lines = f.readlines()
                 meminfo = {}
                 for line in lines:
-                    if ':' in line:
-                        key, value = line.split(':', 1)
+                    if ":" in line:
+                        key, value = line.split(":", 1)
                         meminfo[key.strip()] = value.strip()
-                
-                total = int(meminfo.get('MemTotal', '0 kB').split()[0]) * 1024
-                available = int(meminfo.get('MemAvailable', '0 kB').split()[0]) * 1024
-                
+
+                total = int(meminfo.get("MemTotal", "0 kB").split()[0]) * 1024
+                available = int(meminfo.get("MemAvailable", "0 kB").split()[0]) * 1024
+
                 if total > 0:
                     percent = 100.0 * (total - available) / total
                 else:
                     percent = 0.0
-                
+
                 return {
-                    'percent': percent,
-                    'total': total,
-                    'available': available,
-                    'used': total - available
+                    "percent": percent,
+                    "total": total,
+                    "available": available,
+                    "used": total - available,
                 }
             except:
-                return {
-                    'percent': 0.0,
-                    'total': 0,
-                    'available': 0,
-                    'used': 0
-                }
-    
+                return {"percent": 0.0, "total": 0, "available": 0, "used": 0}
+
     @staticmethod
     def disk_usage(path: str = ".") -> Dict[str, Any]:
         """Get disk usage information"""
         try:
             import psutil
+
             disk = psutil.disk_usage(path)
             return {
-                'percent': disk.percent,
-                'total': disk.total,
-                'used': disk.used,
-                'free': disk.free
+                "percent": disk.percent,
+                "total": disk.total,
+                "used": disk.used,
+                "free": disk.free,
             }
         except:
             # Fallback using os.statvfs
@@ -98,37 +97,28 @@ class TermuxMonitor:
                 total = stat.f_blocks * stat.f_frsize
                 free = stat.f_bfree * stat.f_frsize
                 used = total - free
-                
+
                 if total > 0:
                     percent = 100.0 * used / total
                 else:
                     percent = 0.0
-                
-                return {
-                    'percent': percent,
-                    'total': total,
-                    'used': used,
-                    'free': free
-                }
+
+                return {"percent": percent, "total": total, "used": used, "free": free}
             except:
-                return {
-                    'percent': 0.0,
-                    'total': 0,
-                    'used': 0,
-                    'free': 0
-                }
-    
+                return {"percent": 0.0, "total": 0, "used": 0, "free": 0}
+
     @staticmethod
     def get_system_info() -> Dict[str, Any]:
         """Get comprehensive system information"""
         return {
-            'cpu_percent': TermuxMonitor.cpu_usage(),
-            'memory': TermuxMonitor.memory_usage(),
-            'disk': TermuxMonitor.disk_usage('.'),
-            'platform': sys.platform,
-            'python_version': sys.version,
-            'termux': 'termux' in os.environ.get('PREFIX', '')
+            "cpu_percent": TermuxMonitor.cpu_usage(),
+            "memory": TermuxMonitor.memory_usage(),
+            "disk": TermuxMonitor.disk_usage("."),
+            "platform": sys.platform,
+            "python_version": sys.version,
+            "termux": "termux" in os.environ.get("PREFIX", ""),
         }
+
 
 # Test function
 if __name__ == "__main__":

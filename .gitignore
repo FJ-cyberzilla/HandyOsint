@@ -93,6 +93,10 @@ htmlcov/
 .coverage.*
 .pytest_cache/
 
+# Test-related logs and temporary files
+tests/logs/
+tests/tests/
+
 # Distribution
 dist/
 wheelhouse/

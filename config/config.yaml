@@ -3,66 +3,88 @@
 
 app:
   name: "HandyOsint"
-  version: "2.4.0"
+  version: "3.0.0"
   author: "Cyberzilla Security"
-  license: "Educational Use Only"
-
-performance:
-  max_concurrent_scans: 3
-  max_concurrent_requests: 5
-  request_timeout: 30
-  rate_limit_requests: 20
-  rate_limit_window: 60
-  retry_attempts: 3
-  retry_delay: 2.0
+  license: "Commercial License Required for Production"
 
 scanner:
-  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-  respect_robots_txt: true
-  follow_redirects: true
-  verify_ssl: true
+  max_concurrent_requests: 10
+  request_timeout: 30
+  user_agents:
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.4; rv:124.0) Gecko/20100101 Firefox/124.0"
+    - "Mozilla/5.0 (X11; Linux i686; rv:124.0) Gecko/20100101 Firefox/124.0"
+    - "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Mobile Safari/537.36"
+    - "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+  proxies:
+    # Add your proxies here. Examples:
+    # - "http://user:pass@proxy1.example.com:8080"
+    # - "http://user:pass@proxy2.example.com:8080"
+    # - "socks5://user:pass@proxy3.example.com:9050"
+  ssl_verify: true # Set to false to disable SSL certificate verification (NOT RECOMMENDED for production)
+  ssl_ca_bundle: null # Path to a custom CA bundle file (e.g., "certs/my_custom_ca.pem")
+  ssl_client_cert: null # Path to a client certificate file (e.g., "certs/client.pem")
+  ssl_client_key: null # Path to a client key file (e.g., "certs/client.key")
+  min_delay: 1.0 # Minimum random delay between requests in seconds
+  max_delay: 3.0 # Maximum random delay between requests in seconds
+  accept_headers:
+    - "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    - "application/json, text/javascript, */*; q=0.01"
+    - "application/xml;q=0.9,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5"
+  accept_language_headers:
+    - "en-US,en;q=0.9"
+    - "en-GB,en;q=0.9"
+    - "es-ES,es;q=0.9"
+    - "fr-FR,fr;q=0.9"
+  referer_domains:
+    - "https://www.google.com"
+    - "https://www.bing.com"
+    - "https://duckduckgo.com"
+    - "https://www.facebook.com"
+    - "https://www.twitter.com"
+  referer_chance: 0.5 # Chance (0.0 to 1.0) of adding a Referer header to a request
+  disable_dns_cache: false # Set to true to disable DNS caching in aiohttp
+  custom_nameservers: # List of custom DNS servers to use (e.g., ["8.8.8.8", "8.8.4.4"])
+    # - "8.8.8.8"
+    # - "1.1.1.1"
   
-  # Platform configurations
+  # Platform configurations (these are mostly internal to ProductionScanner for now)
   platforms:
     twitter:
       enabled: true
-      timeout: 10
-      check_method: "status_code"
       
     github:
       enabled: true
-      timeout: 10
-      check_method: "status_code"
       
     instagram:
       enabled: true
-      timeout: 15
-      check_method: "status_code"
       
-    # Add more platforms as needed
-
 database:
-  path: "./data/social_scan.db"
+  path: "data/social_scan.db"
   backup_interval: 86400  # 24 hours in seconds
   max_history_days: 30
 
 logging:
   level: "INFO"
-  file: "./logs/command_center.log"
+  file: "logs/handyosint.log" # Updated from command_center.log
   max_size_mb: 10
   backup_count: 5
 
 ui:
   enable_colors: true
   enable_animations: true
-  color_scheme: "16bit_green"
+  default_banner_scheme: "HEAT_WAVE" # New: default banner color scheme
+  default_menu_scheme: "GREEN_PLASMA" # New: default menu color scheme
   ascii_art: true
 
 export:
   formats: ["json", "csv", "html"]
   default_format: "json"
   timestamp_format: "%Y%m%d_%H%M%S"
-  directory: "./reports"
+  directory: "reports"
 
 security:
   enable_input_validation: true

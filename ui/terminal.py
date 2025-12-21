@@ -18,6 +18,7 @@ from rich.text import Text
 
 class TerminalColorScheme(Enum):
     """ANSI terminal color schemes"""
+
     GREEN_PLASMA = "green"
     AMBER_MONO = "yellow"
     COOL_BLUE = "blue"
@@ -50,7 +51,7 @@ class Terminal:
                 "ESTABLISHING SECURE DATA CHANNELS...",
                 "SYSTEM READY. AWAITING COMMANDS...",
             ]
-        
+
         with self.console.status("[bold green]Booting system...") as status:
             for step in steps:
                 time.sleep(0.5)
@@ -66,7 +67,7 @@ class Terminal:
                 "CLOSING SECURE CONNECTIONS...",
                 "SYSTEM HALTED.",
             ]
-        
+
         with self.console.status("[bold yellow]Shutting down...") as status:
             for step in steps:
                 time.sleep(0.5)
@@ -82,10 +83,10 @@ class Terminal:
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
             console=self.console,
         )
-        
+
     def write_info(self, text: str):
         self.console.print(Text(f"[ℹ] {text}", style="cyan"))
-        
+
     def write_success(self, text: str):
         self.console.print(Text(f"[✓] {text}", style="green"))
 
@@ -94,4 +95,3 @@ class Terminal:
 
     def write_warning(self, text: str):
         self.console.print(Text(f"[⚠] {text}", style="yellow"))
-

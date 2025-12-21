@@ -135,6 +135,18 @@ If core.documentation is missing → Uses built-in help
 ✅ Response caching for efficiency
 ✅ Configurable timeout and concurrency
 
+### Advanced Evasion & Stealth Features
+
+To enhance detection evasion and mimic human behavior, HandyOsint now includes:
+
+✅ **Dynamic User-Agent Rotation:** Cycles through a configurable list of realistic User-Agent strings.
+✅ **Proxy Pool with Rotation:** Distributes requests across a configurable list of proxy servers with intelligent retry logic.
+✅ **Enhanced TLS Configuration:** Supports configurable SSL verification, custom CA bundles, and client certificates for secure and flexible connections.
+✅ **Human-Mimicking Delays:** Introduces random, configurable delays between requests to avoid predictable scanning patterns.
+✅ **Configurable DNS Resolution:** Allows disabling DNS caching and specifying custom DNS servers for better evasion and control.
+✅ **Dynamic Request Headers:** Rotates `Accept` and `Accept-Language` headers.
+✅ **Referer Spoofing:** Randomly spoofs `Referer` headers using a configurable list of common domains.
+
 Platform Categories
 Social Media (10): Twitter, Facebook, Instagram, TikTok, Reddit, Snapchat, Telegram, Mastodon, Bluesky, Threads
 Developer (5): GitHub, GitLab, Stack Overflow, Dev.to, CodePen
@@ -371,9 +383,6 @@ Integration Tests
 System Checks
 ✅ Dependency verification (aiohttp, aioconsole, sqlite3, etc.)
 ✅ Project structure validation
-✅ Directory creation and verification
-✅ File write permissions
-✅ Memory availability check
 
 Troubleshooting
 ✅ Automatic issue detection
@@ -381,30 +390,52 @@ Troubleshooting
 ✅ Detailed diagnostics
 ✅ Issue categorization
 
-ASCII Art & Formatting
-✅ Professional test banners (16-bit vintage)
-✅ Color-coded results (✓ PASS, ✗ FAIL, ⊘ SKIP)
-✅ Section dividers
-✅ Summary statistics
-✅ Pretty-printed reports
 
-Reporting
-✅ Real-time test output
-✅ Detailed HTML-formatted report
-✅ Auto-saved to reports/test_report.txt
-✅ Statistics (pass rate, timing, etc.)
-✅ Issue tracking and solutions
+✅ REAL DATABASE OPERATIONS (20+ tests)
+Table creation & indexes
+Insert/query/statistics
+Batch operations
+Audit logging
+Export/backup
+Concurrent operations
+Bulk insert (500 records)
+Query performance with indexes
+Data integrity
+Timestamp accuracy
+JSON serialization roundtrip
+✅ ORIGINAL ALL TESTS (28 tests)
+Database tests (5)
+Configuration tests (3)
+UI Banner tests (3)
+UI Menu tests (3)
+Scanner functionality tests (6)
+Error handling tests (5)
+Integration tests (3)
+File operations tests (3)
+✅ RICH VISUAL REPORTING
+Beautiful colored tables
+Enhanced terminal output
+Detailed statistics
+Failure/error panels
+Professional formatting
+✅ PERFORMANCE TESTING
+Bulk insert performance
+Query optimization verification
+Statistics calculation speed
+Concurrent access safety
 
-🚀 Usage
-# Run complete test suite
-python3 -m pytest tests/test_suite.py -v
+✅ 48+ COMPREHENSIVE TESTS TOTAL
 
-# Or run directly
-python3 tests/conftest.py
+## Test Coverage:
 
-# Or in a specific test file
-cd tests
-python3 test_suite.py
+✅ 8 Test Classes
+✅ 48+ Real Tests
+✅ Real Database (SQLite3)
+✅ Real File I/O
+✅ Real Configuration (YAML)
+✅ Thread Safety
+✅ Performance Benchmarks
+✅ Rich Visuals
 
 ## 📊 Test Output Example
 
@@ -414,7 +445,6 @@ python3 test_suite.py
 ✓ Structure: ui/banner.py [PASS]
 ✗ Dependency: psutil [FAIL]
 
-RESULTS: 25 PASSED | 1 FAILED | 3 SKIPPED | 29 TOTAL
 
 TROUBLESHOOTING & DIAGNOSTICS:
 Found 1 issue(s):
