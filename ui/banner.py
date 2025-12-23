@@ -1,609 +1,587 @@
 #!/usr/bin/env python3
 """
-HandyOsint Banner Generator
-Advanced ASCII art system with gradient colors, nancyj-fancy fonts, and sleek charts
-Enterprise-grade visual display system
+HandyOsint Banner Generator - Professional Enterprise Edition
+Advanced ASCII art system with gradient colors, responsive design, and smooth animations.
+
+This module provides an enterprise-grade visual display system with:
+- Responsive terminal width detection
+- Dark orange to light orange gradient color schemes
+- Professional smooth animations
+- Sleek charts and visualizations
+- Full pylint compliance
 """
 
 import time
 import sys
+import os
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
-from collections import deque
+from dataclasses import dataclass
+
+
+@dataclass
+class TerminalConfig:
+    """Terminal configuration and capabilities."""
+
+    width: int
+    height: int
+    supports_colors: bool
+
+    @staticmethod
+    def detect() -> 'TerminalConfig':
+        """Detect terminal capabilities and constraints."""
+        try:
+            term_size = os.get_terminal_size()
+            width = term_size.columns
+            height = term_size.lines
+        except (AttributeError, ValueError):
+            width = 80
+            height = 24
+
+        width = max(40, min(width, 200))
+        height = max(10, min(height, 50))
+
+        supports_colors = sys.stdout.isatty()
+
+        return TerminalConfig(
+            width=width,
+            height=height,
+            supports_colors=supports_colors
+        )
 
 
 class GradientColor(Enum):
-    """Advanced gradient color definitions with RGB to ANSI mapping"""
+    """Professional gradient color definitions with ANSI codes."""
 
-    # Gradient: Red -> Yellow -> Green (Heatmap)
-    HEAT_RED = "208"  # Bright Orange-Red
-    HEAT_ORANGE = "214"  # Orange
-    HEAT_YELLOW = "226"  # Yellow
-    HEAT_LIME = "118"  # Lime Green
-    HEAT_GREEN = "46"  # Bright Green
+    # Dark Orange to Light Orange Gradient
+    ORANGE_DARK = "52"      # Dark brown
+    ORANGE_DARK1 = "94"     # Dark orange
+    ORANGE_DARK2 = "130"    # Darker burnt orange
+    ORANGE_MEDIUM = "166"   # Medium orange
+    ORANGE_MEDIUM1 = "172"  # Lighter medium orange
+    ORANGE_LIGHT = "178"    # Light orange
+    ORANGE_LIGHT1 = "215"   # Lighter orange
+    ORANGE_LIGHTER = "216"  # Very light orange
+    ORANGE_PALE = "223"     # Pale orange
 
-    # Gradient: Blue -> Cyan -> White (Cool)
-    COOL_NAVY = "17"  # Dark Blue
-    COOL_BLUE = "33"  # Blue
-    COOL_CYAN = "51"  # Bright Cyan
-    COOL_WHITE = "231"  # White
+    # Neutral grays for text
+    GRAY_DARK = "235"
+    GRAY_MEDIUM = "245"
+    GRAY_LIGHT = "255"
 
-    # Gradient: Purple -> Magenta -> Pink (Neon)
-    NEON_PURPLE = "55"  # Purple
-    NEON_MAGENTA = "127"  # Magenta
-    NEON_PINK = "205"  # Pink
-    NEON_WHITE = "231"  # White
-
-    # Gradient: Green -> Cyan -> Blue (Nature)
-    NATURE_GREEN = "28"  # Dark Green
-    NATURE_LIME = "82"  # Lime
-    NATURE_CYAN = "51"  # Cyan
-    NATURE_BLUE = "33"  # Blue
+    # Accent colors
+    WHITE = "231"
+    BLACK = "16"
 
 
 class BannerColorScheme(Enum):
-    """Professional color scheme presets"""
+    """Professional color scheme presets."""
 
-    HEAT_WAVE = [
-        GradientColor.HEAT_RED,
-        GradientColor.HEAT_ORANGE,
-        GradientColor.HEAT_YELLOW,
-        GradientColor.HEAT_LIME,
-        GradientColor.HEAT_GREEN,
+    DARK_ORANGE = [
+        GradientColor.ORANGE_DARK,
+        GradientColor.ORANGE_DARK1,
+        GradientColor.ORANGE_DARK2,
+        GradientColor.ORANGE_MEDIUM,
+        GradientColor.ORANGE_MEDIUM1,
+        GradientColor.ORANGE_LIGHT,
+        GradientColor.ORANGE_LIGHT1,
+        GradientColor.ORANGE_LIGHTER,
     ]
-    COOL_BREEZE = [
-        GradientColor.COOL_NAVY,
-        GradientColor.COOL_BLUE,
-        GradientColor.COOL_CYAN,
-        GradientColor.COOL_WHITE,
-    ]
-    NEON_GLOW = [
-        GradientColor.NEON_PURPLE,
-        GradientColor.NEON_MAGENTA,
-        GradientColor.NEON_PINK,
-        GradientColor.NEON_WHITE,
-    ]
-    NATURE = [
-        GradientColor.NATURE_GREEN,
-        GradientColor.NATURE_LIME,
-        GradientColor.NATURE_CYAN,
-        GradientColor.NATURE_BLUE,
+
+    PROFESSIONAL = [
+        GradientColor.ORANGE_DARK1,
+        GradientColor.ORANGE_MEDIUM,
+        GradientColor.ORANGE_LIGHT,
     ]
 
 
-class NancyJFancyFont:
-    """Nancyj-fancy style ASCII art fonts"""
+class ProfessionalFonts:
+    """Professional ASCII art fonts for enterprise display."""
 
     HANDY_OSINT = r"""
-██╗  ██╗ █████╗ ███╗   ██╗ ██████╗ ██╗     ███████╗ ██████╗ ██╗  ██╗
-██║  ██║██╔══██╗████╗  ██║██╔════╝ ██║     ██╔════╝██╔═══██╗██║  ██║
-███████║███████║██╔██╗ ██║██║  ███╗██║     █████╗  ██║   ██║███████║
-██╔══██║██╔══██║██║╚██╗██║██║   ██║██║     ██╔══╝  ██║   ██║██╔══██║
-██║  ██║██║  ██║██║ ╚████║╚██████╔╝███████╗███████╗╚██████╔╝██║  ██║
-╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝
+    ██╗  ██╗ █████╗ ███╗   ██╗ ██████╗ ██╗   ██╗
+    ██║  ██║██╔══██╗████╗  ██║██╔════╝ ██║   ██║
+    ███████║███████║██╔██╗ ██║██║  ███╗██║   ██║
+    ██╔══██║██╔══██║██║╚██╗██║██║   ██║╚██╗ ██╔╝
+    ██║  ██║██║  ██║██║ ╚████║╚██████╔╝ ╚████╔╝
+    ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝   ╚═══╝
     """
 
-    SCAN_PRO = r"""
- ___  ___  _   _  _ _
-/ __|/ __|| | | || 	'_|
-\__ \\__ \| |_| || |
-|___/|___/ \__,_||_|
-"""
+    OSINT = r"""
+    ╔═══════════════════════════════════════╗
+    ║        OPEN SOURCE INTELLIGENCE       ║
+    ║         PROFESSIONAL PLATFORM          ║
+    ╚═══════════════════════════════════════╝
+    """
 
-    DASHBOARD = r"""
- ____              _     _                     _
-|  _ \  __ _  ___ | |__ | |__   ___   __ _  __| |
-| | | |/ _` |/ __|| 	'_ \t| '_ \ / _ \ / _` |/ _` |
-| |_| | (_| |\__ \| |_) | |_) | (_) | (_| | (_| |
-|____/ \__,_||___/|_.__/|_.__/ \___/ \__,_|\__,_|
-"""
+    SCAN = r"""
+    ▓▒░ S C A N   I N   P R O G R E S S ░▒▓
+    """
+
+    ANALYSIS = r"""
+    ┌─ A N A L Y S I S   M O D E ─┐
+    """
 
     RESULTS = r"""
- ____  ___  ____  _   _  _  ___  ____  ___
-|  _ \/ _ \/ ___|| | | || ||_ _||_  _/ __|
-| |_) | | |\___ \| | | || | | |   | || (__
-|____/|_| |_____|\_____/|_| |_|   |_| \___|
-"""
+    ╔═ R E S U L T S   D I S P L A Y ═╗
+    """
 
-    ANALYZE = r"""
-  ___ ___   _   _  _ _  ___ ___ ___
- / _ \\_ _| /_\ | \\| | |/ __| _ \\_ _|
-| (_) || | / _ \| .` | | (__| v /| |
- \___/|___/_/ \_\|_|_|\___|_|\_\___|
-"""
-    STATUS_OK = r"""
-✓ STATUS OK
-"""
-
-    ALERT = r"""
-⚠ ALERT
-"""
+    @staticmethod
+    def get_font(font_name: str) -> str:
+        """Retrieve font by name with validation."""
+        fonts = {
+            "osint": ProfessionalFonts.HANDY_OSINT,
+            "scan": ProfessionalFonts.SCAN,
+            "analysis": ProfessionalFonts.ANALYSIS,
+            "results": ProfessionalFonts.RESULTS,
+        }
+        return fonts.get(font_name, ProfessionalFonts.HANDY_OSINT)
 
 
-class GradientTextRenderer:
-    """Renders text with smooth gradient colors"""
 
-    def __init__(self, scheme: BannerColorScheme = BannerColorScheme.HEAT_WAVE):
+
+class GradientRenderer:
+    """Renders text with smooth gradient colors."""
+
+    ANSI_RESET = "\033[0m"
+    ANSI_BOLD = "\033[1m"
+    ANSI_DIM = "\033[2m"
+
+    def __init__(self, scheme: BannerColorScheme = BannerColorScheme.DARK_ORANGE):
+        """Initialize gradient renderer with color scheme."""
         self.scheme = scheme.value
-        self.reset = "\033[0m"
+        self.supports_colors = True
 
-    def apply_gradient(
-        self, text: str, scheme: Optional[BannerColorScheme] = None
-    ) -> str:
-        """Apply gradient colors to text"""
-        colors = (
-            (scheme or self.scheme).value
-            if isinstance(scheme, BannerColorScheme)
-            else scheme or self.scheme
-        )
+    def apply_gradient(self, text: str, bold: bool = False) -> str:
+        """Apply smooth gradient to text."""
+        if not self.supports_colors or not text:
+            return text
 
+        colors = self.scheme
         result = ""
         text_len = len(text)
 
         for idx, char in enumerate(text):
-            if char.strip():
-                # Calculate color index based on position
-                color_idx = int((idx / text_len) * (len(colors) - 1))
+            if char not in (' ', '\n', '\t'):
+                color_idx = int((idx / max(text_len, 1)) * (len(colors) - 1))
                 color_code = colors[color_idx].value
-                result += f"\033[38;5;{color_code}m{char}"
+
+                if bold:
+                    result += f"\033[1;38;5;{color_code}m{char}"
+                else:
+                    result += f"\033[38;5;{color_code}m{char}"
             else:
                 result += char
 
-        result += self.reset
+        result += self.ANSI_RESET
         return result
 
-    def apply_rainbow(self, text: str, cycle: bool = False) -> str:
-        """Apply rainbow gradient to text"""
-        rainbow = [
-            196,
-            208,
-            226,
-            82,
-            51,
-            33,
-            127,
-        ]  # Red, Orange, Yellow, Lime, Cyan, Blue, Magenta
+    def solid_color(self, text: str, color: GradientColor, bold: bool = False) -> str:
+        """Apply solid color to text."""
+        if not self.supports_colors:
+            return text
 
-        result = ""
-        for idx, char in enumerate(text):
-            if char.strip():
-                color_code = rainbow[idx % len(rainbow)]
-                result += f"\033[38;5;{color_code}m{char}"
-            else:
-                result += char
-
-        result += self.reset
-        return result
+        style = f"\033[1;38;5;{color.value}m" if bold else f"\033[38;5;{color.value}m"
+        return f"{style}{text}{self.ANSI_RESET}"
 
 
 class SleekChart:
-    """Professional sleek chart rendering system"""
+    """Professional sleek chart rendering system."""
 
-    def __init__(self, scheme: BannerColorScheme = BannerColorScheme.HEAT_WAVE):
+    def __init__(self, terminal: TerminalConfig,
+                 scheme: BannerColorScheme = BannerColorScheme.DARK_ORANGE):
+        """Initialize chart renderer."""
+        self.terminal = terminal
         self.scheme = scheme.value
-        self.gradient = GradientTextRenderer(scheme)
+        self.gradient = GradientRenderer(scheme)
 
-    def render_bar_chart(
-        self,
-        data: Dict[str, float],
-        width: int = 40,
-        title: str = "",
-        show_values: bool = True,
-    ) -> str:
-        """Render a sleek horizontal bar chart"""
+    def render_bar_chart(self, data: Dict[str, float],
+                        width: Optional[int] = None,
+                        title: str = "",
+                        show_values: bool = True) -> str:
+        """Render professional horizontal bar chart."""
+        if width is None:
+            width = max(20, self.terminal.width - 40)
+
         result = ""
 
         if title:
-            result += f"\n{self.gradient.apply_gradient(title)}\n"
+            result += f"\n{self.gradient.apply_gradient(title, bold=True)}\n"
 
-        max_value = max(data.values()) if data else 1
-        max_label_len = max(len(str(k)) for k in data.keys()) if data else 0
+        if not data:
+            return result
+
+        max_value = max(data.values())
+        max_label_len = max(len(str(k)) for k in data.keys())
 
         for label, value in data.items():
             normalized = (value / max_value) if max_value > 0 else 0
             bar_length = int(normalized * width)
 
-            # Determine color based on value
             color_idx = int(normalized * (len(self.scheme) - 1))
-            color = self.scheme[color_idx].value
+            color_code = self.scheme[color_idx].value
 
-            bar = "▓" * bar_length + "░" * (width - bar_length)
+            filled_portion = "█" * bar_length
+            empty_portion = "░" * (width - bar_length)
+            bar_display = filled_portion + empty_portion
             value_str = f"{value:.1f}" if show_values else ""
 
-            # Corrected line: escape the literal curly brace
-            # The original was: result += f"{label:<{max_label_len}}} |\033[38;5;{color}m{bar}\033[0m| {value_str}\n"
-            # The issue was with `max_label_len}}`. It needs to be `{{max_label_len}}` if the outer `}` is literal,
-            # or handled differently if `max_label_len` is part of format spec.
-            # This version explicitly formats the label width first to avoid nested brace issues.
             label_formatted = f"{label:<{max_label_len}}"
-            result += (
-                f"{label_formatted} |\033[38;5;{color}m{bar}\033[0m| {value_str}\n"
-            )
+            result += (f"{label_formatted} |\033[38;5;{color_code}m"
+                      f"{bar_display}\033[0m| {value_str}\n")
 
         return result
 
-    def render_line_chart(
-        self, data: List[float], height: int = 10, width: int = 40, title: str = ""
-    ) -> str:
-        """Render a sleek ASCII line chart"""
-        if not data or height < 2:
-            return "No data"
+    def render_progress_bar(self, value: float, max_value: float = 100,
+                           width: Optional[int] = None,
+                           label: str = "Progress") -> str:
+        """Render professional progress bar."""
+        if width is None:
+            width = max(15, self.terminal.width - 30)
 
-        result = ""
-        if title:
-            result += f"{self.gradient.apply_gradient(title)}\n"
+        percent = (value / max_value) * 100 if max_value > 0 else 0
+        filled = int((percent / 100) * width)
 
-        # Normalize data
+        # Color progression based on completion percentage
+        if percent < 33:
+            color = GradientColor.ORANGE_DARK.value
+        elif percent < 66:
+            color = GradientColor.ORANGE_MEDIUM.value
+        else:
+            color = GradientColor.ORANGE_LIGHT.value
+
+        filled_bar = "█" * filled
+        empty_bar = "░" * (width - filled)
+        bar_display = filled_bar + empty_bar
+        return (f"{label}: |\033[38;5;{color}m{bar_display}\033[0m| "
+                f"{percent:.1f}%\n")
+
+    def _build_chart_grid(self, data: List[float], height: int,
+                         width: int) -> list:
+        """Build chart grid for line visualization."""
         min_val = min(data)
         max_val = max(data)
         range_val = max_val - min_val if max_val != min_val else 1
 
-        # Build chart grid
-        grid = [[" " for _ in range(min(len(data), width))] for _ in range(height)]
+        grid = [[" " for _ in range(min(len(data), width))]
+                for _ in range(height)]
 
-        # Plot points
         for idx, value in enumerate(data[:width]):
-            row = height - 1 - int(((value - min_val) / range_val) * (height - 1))
-            if 0 <= row < height and idx < width:
-                grid[row][idx] = "●"
+            norm_height = ((value - min_val) / range_val) * (height - 1)
+            row_pos = height - 1 - int(norm_height)
+            if 0 <= row_pos < height and idx < width:
+                grid[row_pos][idx] = "●"
 
-        # Draw grid
+        return grid
+
+    def render_line_chart(self, data: List[float], height: int = 8,
+                         width: Optional[int] = None, title: str = "") -> str:
+        """Render professional ASCII line chart."""
+        if width is None:
+            width = max(20, self.terminal.width - 20)
+
+        if not data or height < 2:
+            return "No data available\n"
+
+        result = ""
+        if title:
+            result += f"{self.gradient.apply_gradient(title, bold=True)}\n"
+
+        grid = self._build_chart_grid(data, height, width)
         colors = self.scheme
+
         for row_idx, row in enumerate(grid):
-            color = colors[int((row_idx / height) * (len(colors) - 1))].value
+            color_ratio = row_idx / height if height > 0 else 0
+            color_idx = int(color_ratio * (len(colors) - 1))
+            color = colors[color_idx].value
             line = "".join(row)
             result += f"\033[38;5;{color}m{line}\033[0m\n"
 
         return result
 
-    def render_progress_bar(
-        self,
-        value: float,
-        max_value: float = 100,
-        width: int = 30,
-        label: str = "Progress",
-    ) -> str:
-        """Render sleek progress bar with gradient"""
-        percent = (value / max_value) * 100 if max_value > 0 else 0
-        filled = int((percent / 100) * width)
 
-        # Color based on progress
-        if percent < 33:
-            color = "196"  # Red
-        elif percent < 66:
-            color = "226"  # Yellow
-        else:
-            color = "46"  # Green
+class AnimationEngine:
+    """Professional smooth animation system."""
 
-        bar = "█" * filled + "░" * (width - filled)
-        return f"{label}: |\033[38;5;{color}m{bar}\033[0m| {percent:.1f}%\n"
+    # Animation types (professional, no color)
+    ANIM_NONE = "none"
+    ANIM_TYPEWRITER = "typewriter"
+    ANIM_FADE = "fade"
+    ANIM_SLIDE = "slide"
 
+    def __init__(self, enabled: bool = True, animation_type: str = ANIM_TYPEWRITER):
+        """Initialize animation engine."""
+        self.enabled = enabled
+        self.animation_type = animation_type
 
-class Banner:
-    """Enterprise-grade banner system with gradient colors and charts"""
+    def typewriter_effect(self, text: str, delay: float = 0.02) -> None:
+        """Professional typewriter animation."""
+        if not self.enabled:
+            print(text)
+            return
 
-    def __init__(self, scheme: BannerColorScheme = BannerColorScheme.HEAT_WAVE):
-        self.scheme = scheme
-        self.gradient = GradientTextRenderer(scheme)
-        self.chart = SleekChart(scheme)
-        self.animations_enabled = True
-        self.font = NancyJFancyFont()
-
-    # ========================================================================
-    # MAIN BANNERS WITH NANCYJ-FANCY FONT
-    # ========================================================================
-
-    def get_main_banner(self) -> str:
-        """Main banner with gradient nancyj-fancy font"""
-        ascii_art = self.font.HANDY_OSINT
-        gradient_art = self.gradient.apply_gradient(ascii_art)
-
-        border = "═" * 80
-        border_gradient = self.gradient.apply_gradient(border)
-
-        return f"""
-{border_gradient}
-{gradient_art}
-{border_gradient}
-{self.gradient.apply_gradient('  🔍 Advanced OSINT Intelligence Framework | Enterprise Edition v3.0')}
-{self.gradient.apply_rainbow('  Open Source Security Intelligence • Real-Time Analysis • Deep Investigation')}
-{border_gradient}
-"""
-
-    def get_scan_banner(self) -> str:
-        """Scan progress banner"""
-        ascii_art = self.font.SCAN_PRO
-        gradient_art = self.gradient.apply_gradient(ascii_art)
-
-        return f"""
-{self.gradient.apply_rainbow('╔' + '═' * 78 + '╗')}
-{self.gradient.apply_gradient(f'║{gradient_art:<77}║')}
-{self.gradient.apply_rainbow('╚' + '═' * 78 + '╝')}
-"""
-
-    def get_dashboard_banner(self) -> str:
-        """Dashboard banner with chart preview"""
-        ascii_art = self.font.DASHBOARD
-        gradient_art = self.gradient.apply_gradient(ascii_art)
-
-        return f"""
-{self.gradient.apply_rainbow('╔' + '═' * 78 + '╗')}
-{gradient_art}
-{self.gradient.apply_rainbow('╚' + '═' * 78 + '╝')}
-"""
-
-    def get_results_banner(self) -> str:
-        """Results display banner"""
-        ascii_art = self.font.RESULTS
-        gradient_art = self.gradient.apply_gradient(ascii_art)
-
-        return f"""
-{self.gradient.apply_rainbow('┌' + '─' * 78 + '┐')}
-{gradient_art}
-{self.gradient.apply_rainbow('└' + '─' * 78 + '┘')}
-"""
-
-    def get_analyze_banner(self) -> str:
-        """Analysis mode banner"""
-        ascii_art = self.font.ANALYZE
-        gradient_art = self.gradient.apply_rainbow(ascii_art)
-
-        return f"""
-{self.gradient.apply_gradient('▁' * 80)}
-{gradient_art}
-{self.gradient.apply_gradient('▔' * 80)}
-"""
-
-    # ========================================================================
-    # CHART INTEGRATION METHODS
-    # ========================================================================
-
-    def display_with_chart(
-        self,
-        banner_type: str = "main",
-        chart_data: Optional[Dict[str, float]] = None,
-        chart_type: str = "bar",
-    ) -> str:
-        """Display banner with integrated chart"""
-        banners = {
-            "main": self.get_main_banner,
-            "scan": self.get_scan_banner,
-            "dashboard": self.get_dashboard_banner,
-            "results": self.get_results_banner,
-            "analyze": self.get_analyze_banner,
-        }
-
-        banner = banners.get(banner_type, banners["main"])
-        result = banner()
-
-        # Add chart if data provided
-        if chart_data:
-            if chart_type == "bar":
-                result += self.chart.render_bar_chart(
-                    chart_data,
-                    width=50,
-                    title=self.gradient.apply_gradient("📊 Intelligence Metrics"),
-                )
-            elif chart_type == "line":
-                line_data = list(chart_data.values())
-                result += self.chart.render_line_chart(
-                    line_data,
-                    height=8,
-                    width=60,
-                    title=self.gradient.apply_gradient("📈 Trend Analysis"),
-                )
-            elif chart_type == "progress":
-                for label, value in chart_data.items():
-                    result += self.chart.render_progress_bar(value, 100, 30, label)
-
-        return result
-
-    # ========================================================================
-    # DISPLAY METHODS
-    # ========================================================================
-
-    def display(
-        self,
-        banner_type: str = "main",
-        animate: bool = False,
-        chart_data: Optional[Dict[str, float]] = None,
-        chart_type: str = "bar",
-    ) -> None:
-        """Display banner with optional animation and charts"""
-        output = self.display_with_chart(banner_type, chart_data, chart_type)
-
-        if animate and self.animations_enabled:
-            self._animate_output(output)
-        else:
-            print(output)
-
-    def _animate_output(self, text: str, char_delay: float = 0.003) -> None:
-        """Animate output character by character"""
         try:
             for char in text:
                 sys.stdout.write(char)
                 sys.stdout.flush()
-                time.sleep(char_delay)
+                time.sleep(delay)
+            print()
         except KeyboardInterrupt:
             print(text)
 
-    def display_status_ok(self) -> None:
-        """Display status OK indicator"""
-        status = self.gradient.apply_gradient(self.font.STATUS_OK)
-        print(status)
+    def fade_effect(self, text: str, steps: int = 10) -> None:
+        """Smooth fade animation effect."""
+        if not self.enabled:
+            print(text)
+            return
 
-    def display_alert(self) -> None:
-        """Display alert indicator"""
-        alert = self.gradient.apply_gradient(self.font.ALERT)
-        print(alert)
+        delay = 0.05
+        actual_steps = max(steps, 1)
+        for _ in range(actual_steps):
+            sys.stdout.write('\r' + text)
+            sys.stdout.flush()
+            time.sleep(delay)
 
-    # ========================================================================
-    # CONFIGURATION METHODS
-    # ========================================================================
+        print()
 
-    def set_animation(self, enabled: bool) -> None:
-        """Enable/disable animations"""
-        self.animations_enabled = enabled
 
-    def change_scheme(self, scheme: BannerColorScheme) -> None:
-        """Change color scheme"""
+class Banner:
+    """Enterprise-grade banner system with responsive design."""
+
+    def __init__(self, scheme: BannerColorScheme = BannerColorScheme.DARK_ORANGE):
+        """Initialize banner system."""
+        self.terminal = TerminalConfig.detect()
         self.scheme = scheme
-        self.gradient = GradientTextRenderer(scheme)
-        self.chart = SleekChart(scheme)
+        self.gradient = GradientRenderer(scheme)
+        self.chart = SleekChart(self.terminal, scheme)
+        self.animation = AnimationEngine(enabled=True, animation_type="typewriter")
+        self.fonts = ProfessionalFonts()
 
-    # ========================================================================
-    # ADVANCED FEATURES
-    # ========================================================================
+    def _get_responsive_width(self, ratio: float = 0.9) -> int:
+        """Get responsive width based on terminal size."""
+        return max(40, int(self.terminal.width * ratio))
 
-    def get_system_status_dashboard(
-        self,
-        cpu: float = 45.0,
-        memory: float = 62.0,
-        network: float = 78.0,
-        scans: float = 91.0,
-    ) -> str:
-        """Display system status with gradient charts"""
-        dashboard = self.get_dashboard_banner()
+    def _create_border(self, width: Optional[int] = None,
+                      char: str = "═", corners: Tuple[str, str] = ("╔", "╗")) -> str:
+        """Create responsive border."""
+        if width is None:
+            width = self._get_responsive_width()
 
-        status_data = {"CPU": cpu, "Memory": memory, "Network": network, "Scans": scans}
+        return f"{corners[0]}{char * (width - 2)}{corners[1]}"
 
-        dashboard += "\n" + self.gradient.apply_gradient("┌─ System Status ─┐\n")
-        dashboard += self.chart.render_bar_chart(
-            status_data, width=30, show_values=True
+    def _prepare_banner_elements(self, width: int) -> Tuple[str, str, str, str, str]:
+        """Prepare reusable banner elements."""
+        border = self._create_border(width)
+        border_gradient = self.gradient.apply_gradient(border, bold=True)
+
+        ascii_art = self.fonts.HANDY_OSINT
+        gradient_art = self.gradient.apply_gradient(ascii_art, bold=False)
+
+        subtitle = "Enterprise Intelligence Framework | Professional Edition v4.0"
+        subtitle_centered = subtitle.center(width)
+        subtitle_gradient = self.gradient.apply_gradient(
+            subtitle_centered,
+            bold=True
         )
-        dashboard += self.gradient.apply_gradient("\n└─────────────────┘\n")
+
+        divider = "─" * (width - 2)
+        divider_gradient = self.gradient.solid_color(
+            divider,
+            GradientColor.GRAY_MEDIUM
+        )
+
+        return (border_gradient, gradient_art, divider_gradient,
+                subtitle_gradient, divider_gradient)
+
+    def get_main_banner(self) -> str:
+        """Generate main banner with gradient colors."""
+        width = self._get_responsive_width()
+        border_g, ascii_g, divider_g, subtitle_g, divider_g2 = \
+            self._prepare_banner_elements(width)
+
+        return f"""
+{border_g}
+{ascii_g}
+{border_g}
+{divider_g}
+{subtitle_g}
+{divider_g2}
+"""
+
+    def get_scan_banner(self) -> str:
+        """Generate scan progress banner."""
+        width = self._get_responsive_width()
+        border = self._create_border(width)
+        border_gradient = self.gradient.apply_gradient(border, bold=True)
+
+        scan_text = self.fonts.SCAN
+        scan_gradient = self.gradient.apply_gradient(scan_text, bold=True)
+        scan_centered = scan_gradient.center(width)
+
+        return f"""
+{border_gradient}
+{scan_centered}
+{border_gradient}
+"""
+
+    def get_analysis_banner(self) -> str:
+        """Generate analysis mode banner."""
+        width = self._get_responsive_width()
+        border = "▁" * width
+        border_gradient = self.gradient.apply_gradient(border, bold=False)
+
+        analysis_text = self.fonts.ANALYSIS
+        analysis_gradient = self.gradient.apply_gradient(analysis_text, bold=True)
+
+        return f"""
+{border_gradient}
+{analysis_gradient}
+{border_gradient}
+"""
+
+    def get_results_banner(self) -> str:
+        """Generate results display banner."""
+        width = self._get_responsive_width()
+        border = self._create_border(width, char="═", corners=("╔", "╗"))
+        border_gradient = self.gradient.apply_gradient(border, bold=True)
+
+        results_text = self.fonts.RESULTS
+        results_gradient = self.gradient.apply_gradient(results_text, bold=True)
+
+        return f"""
+{border_gradient}
+{results_gradient}
+{border_gradient}
+"""
+
+    def display_system_dashboard(self, cpu: float = 45.0, memory: float = 62.0,
+                                network: float = 78.0, scans: float = 91.0) -> str:
+        """Display system status dashboard with metrics."""
+        dashboard = self.get_analysis_banner()
+
+        status_data = {
+            "CPU Usage": cpu,
+            "Memory": memory,
+            "Network": network,
+            "Scans": scans
+        }
+
+        title_text = "╔═ System Status ═╗"
+        title_gradient = self.gradient.apply_gradient(title_text, bold=True)
+        dashboard += f"\n{title_gradient}\n"
+
+        chart_output = self.chart.render_bar_chart(
+            status_data,
+            width=self._get_responsive_width(0.6),
+            show_values=True
+        )
+        dashboard += chart_output
+
+        footer_text = "╚════════════════╝"
+        footer_gradient = self.gradient.apply_gradient(footer_text, bold=True)
+        dashboard += f"{footer_gradient}\n"
 
         return dashboard
 
-    def get_threat_level_display(self, level: int = 5) -> str:
-        """Display threat level with gradient indicator"""
-        threat_map = {
-            1: ("LOW", "46"),  # Green
-            2: ("LOW", "46"),
-            3: ("MEDIUM", "226"),  # Yellow
-            4: ("HIGH", "208"),  # Orange
-            5: ("CRITICAL", "196"),  # Red
+    def display_threat_level(self, level: int = 3) -> str:
+        """Display threat level indicator."""
+        threat_levels = {
+            1: ("LOW", GradientColor.ORANGE_DARK),
+            2: ("MEDIUM", GradientColor.ORANGE_MEDIUM),
+            3: ("HIGH", GradientColor.ORANGE_LIGHT),
+            4: ("CRITICAL", GradientColor.ORANGE_LIGHTER),
+            5: ("MAXIMUM", GradientColor.WHITE)
         }
 
-        threat_text, color = threat_map.get(level, ("UNKNOWN", "37"))
+        threat_text, color = threat_levels.get(level, ("UNKNOWN", GradientColor.GRAY_MEDIUM))
+        level = max(1, min(level, 5))
 
         gauge = "▓" * level + "░" * (5 - level)
 
-        return f"\n{self.gradient.apply_gradient('Threat Level:')} |\033[38;5;{color}m{gauge}\033[0m| {threat_text}\n"
+        threat_label = self.gradient.solid_color("Threat Level:", color, bold=True)
+        gauge_colored = self.gradient.solid_color(gauge, color, bold=True)
 
-    def create_custom_banner(
-        self, title: str, subtitle: str = "", scheme: Optional[BannerColorScheme] = None
-    ) -> str:
-        """Create custom banner with user-provided text"""
-        if scheme:
-            self.change_scheme(scheme)
+        return f"\n{threat_label} [{gauge_colored}] {threat_text}\n"
 
-        border = "═" * 80
-        border_gradient = self.gradient.apply_gradient(border)
-        title_gradient = self.gradient.apply_rainbow(title.center(80))
+    def create_custom_banner(self, title: str, subtitle: str = "") -> str:
+        """Create custom responsive banner."""
+        width = self._get_responsive_width()
+
+        border = self._create_border(width)
+        border_gradient = self.gradient.apply_gradient(border, bold=True)
+
+        title_centered = title.center(width)
+        title_gradient = self.gradient.apply_gradient(title_centered, bold=True)
 
         result = f"\n{border_gradient}\n{title_gradient}\n"
 
         if subtitle:
-            subtitle_gradient = self.gradient.apply_gradient(subtitle.center(80))
+            subtitle_centered = subtitle.center(width)
+            subtitle_gradient = self.gradient.apply_gradient(subtitle_centered, bold=False)
             result += f"{subtitle_gradient}\n"
 
         result += f"{border_gradient}\n"
 
         return result
 
+    def display(self, banner_type: str = "main", animate: bool = True) -> None:
+        """Display banner with optional animation."""
+        banners = {
+            "main": self.get_main_banner(),
+            "scan": self.get_scan_banner(),
+            "analysis": self.get_analysis_banner(),
+            "results": self.get_results_banner(),
+            "dashboard": self.display_system_dashboard(),
+        }
 
-__all__ = [
-    "Banner",
-    "BannerColorScheme",
-    "GradientColor",
-    "NancyJFancyFont",
-    "GradientTextRenderer",
-    "SleekChart",
-]
+        output = banners.get(banner_type, banners["main"])
 
-# ============================================================================
-# UTILITY FUNCTIONS
-# ============================================================================
+        if animate:
+            self.animation.typewriter_effect(output, delay=0.005)
+        else:
+            print(output)
 
+    def set_animation(self, enabled: bool, animation_type: str = "typewriter") -> None:
+        """Configure animation settings."""
+        self.animation.enabled = enabled
+        self.animation.animation_type = animation_type
 
-def demo_all_schemes() -> None:
-    """Display demo of all color schemes"""
-    schemes = [
-        BannerColorScheme.HEAT_WAVE,
-        BannerColorScheme.COOL_BREEZE,
-        BannerColorScheme.NEON_GLOW,
-        BannerColorScheme.NATURE,
-    ]
-
-    for scheme in schemes:
-        banner = Banner(scheme)
-        print(banner.get_main_banner())
-        time.sleep(1)
-
-
-def demo_charts() -> None:
-    """Display demo charts"""
-    banner = Banner(BannerColorScheme.HEAT_WAVE)
-
-    print("\n" + "═" * 80)
-    print(banner.gradient.apply_gradient("BAR CHART DEMO"))
-    print("═" * 80)
-    chart_data = {
-        "Malware": 75.0,
-        "Phishing": 45.0,
-        "SQL Injection": 92.0,
-        "XSS": 38.0,
-        "CSRF": 61.0,
-    }
-    print(banner.chart.render_bar_chart(chart_data, width=40, title="Security Threats"))
-
-    print("\n" + "═" * 80)
-    print(banner.gradient.apply_gradient("LINE CHART DEMO"))
-    print("═" * 80)
-    line_data = [10, 25, 45, 60, 75, 85, 92, 88, 95, 98]
-    print(
-        banner.chart.render_line_chart(
-            line_data, height=8, width=40, title="Detection Rate"
-        )
-    )
-
-    print("\n" + "═" * 80)
-    print(banner.gradient.apply_gradient("PROGRESS BARS DEMO"))
-    print("═" * 80)
-    progress_data = {
-        "Scan Complete": 87.0,
-        "Analysis": 64.0,
-        "Reporting": 41.0,
-    }
-    for label, value in progress_data.items():
-        print(banner.chart.render_progress_bar(value, 100, 30, label), end="")
+    def change_scheme(self, scheme: BannerColorScheme) -> None:
+        """Change color scheme dynamically."""
+        self.scheme = scheme
+        self.gradient = GradientRenderer(scheme)
+        self.chart = SleekChart(self.terminal, scheme)
 
 
-# ============================================================================
-# MAIN DEMONSTRATION
-# ============================================================================
-
-if __name__ == "__main__":
-    # Create banner generator
-    banner_gen = Banner(BannerColorScheme.HEAT_WAVE)
+def main():
+    """Main demonstration function."""
+    banner = Banner(BannerColorScheme.DARK_ORANGE)
 
     # Display main banner
-    print("\n" + banner_gen.get_main_banner())
+    print("\n")
+    banner.display("main", animate=False)
 
-    # Display status dashboard
-    print(
-        banner_gen.get_system_status_dashboard(cpu=67, memory=54, network=82, scans=78)
+    # System dashboard
+    print("\n")
+    print(banner.display_system_dashboard(cpu=67, memory=54, network=82, scans=78))
+
+    # Threat level
+    print(banner.display_threat_level(level=3))
+
+    # Custom banner
+    print("\n")
+    custom = banner.create_custom_banner(
+        title="[ SECURITY ANALYSIS ]",
+        subtitle="Professional Intelligence Platform"
     )
+    print(custom)
 
-    # Display threat level
-    print(banner_gen.get_threat_level_display(level=4))
+    # Progress demonstration
+    print("\nOperation Progress:\n")
+    for i in range(0, 101, 20):
+        print(banner.chart.render_progress_bar(i, 100, label="Processing"), end="")
+        time.sleep(0.5)
 
-    # Display custom banner
-    print(
-        banner_gen.create_custom_banner(
-            title="[ THREAT DETECTED ]",
-            subtitle="Initiating Counter-Measures...",
-            scheme=BannerColorScheme.NEON_GLOW,
-        )
-    )
+
+if __name__ == "__main__":
+    main()
