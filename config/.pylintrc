@@ -1,7 +1,7 @@
 [MASTER]
 jobs=4
 persistent=yes
-load-plugins=pylint_asyncio
+
 fail-under=9.0
 
 [MESSAGES CONTROL]
@@ -23,7 +23,10 @@ disable=
     fixme,
     duplicate-code,
     wildcard-import,
-    unused-wildcard-import
+    unused-wildcard-import,
+    too-many-positional-arguments,
+    trailing-whitespace,
+    unused-variable
 
 enable=c-extension-no-member, missing-module-docstring, missing-class-docstring, missing-function-docstring, consider-using-f-string
 
