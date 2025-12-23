@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10"]  # Start with one version for simplicity
+        python-version: ["3.12"]  # Use Python 3.12 for full compatibility
     
     steps:
     - name: Checkout code
@@ -29,112 +29,58 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pylint
+        # Install pylint version 3.x and ensure astroid compatibility
+        pip install "pylint>=3.0.0" "astroid>=3.0.0"
+        # Install project requirements, including -dev for Pylint configuration
+        pip install -r config/requirements.txt
+        pip install -r config/requirements-dev.txt
         
-    - name: List Python files
-      run: |
-        echo "🔍 Looking for Python files..."
-        find . -type f -name "*.py" | grep -v __pycache__ | grep -v ".venv" | grep -v "venv" | head -20
-        echo "Total files found:"
-        find . -type f -name "*.py" | grep -v __pycache__ | grep -v ".venv" | grep -v "venv" | wc -l
-        
-    - name: Create .pylintrc with minimal settings
-      run: |
-        cat > .pylintrc << 'EOF'
-        [MASTER]
-        fail-under=6.0  # Lower threshold for initial run
-        
-        [MESSAGES CONTROL]
-        disable=missing-docstring, line-too-long, invalid-name
-        
-        [FORMAT]
-        max-line-length=120
-        
-        [BASIC]
-        good-names=i,j,k,ex,Run,_
-        EOF
-        
-    - name: Run Pylint on specific files
+    - name: Run Pylint
       id: run-pylint
-      continue-on-error: true
+      # Do not use continue-on-error here, let pylint's exit code determine job status
       run: |
         echo "📊 Running Pylint..."
         
-        # Try to find your main application files
-        MAIN_FILES=""
+        # Pylint automatically finds .pylintrc in the project root or specified config/
+        # Use --rcfile to explicitly point to the config
+        # Use --recursive=yes to scan all Python files found recursively from the current directory
+        # Exclude directories that are not part of the source code (e.g., tests, venv, .github)
+        PYLINT_COMMAND="pylint --rcfile=config/.pylintrc --recursive=yes . \
+          --ignore=tests,venv,.venv,.github,.validation_backup_*,__pycache__"
         
-        # Look for your Social Scan files
-        if [ -f "social_scan_main.py" ]; then
-          MAIN_FILES="social_scan_main.py"
-        elif [ -f "main.py" ]; then
-          MAIN_FILES="main.py"
-        else
-          # Find any Python files in root
-          MAIN_FILES=$(find . -maxdepth 1 -name "*.py" | head -5 | tr '\n' ' ')
-        fi
+        # Execute Pylint and capture output
+        # Set a default value for score in case Pylint output doesn't match expected pattern
+        PYLINT_SCORE="0.00"
         
-        if [ -z "$MAIN_FILES" ]; then
-          # Find any Python files
-          MAIN_FILES=$(find . -name "*.py" -not -path "*/__pycache__/*" -not -path "*/.venv/*" -not -path "*/venv/*" | head -10 | tr '\n' ' ')
-        fi
+        # Run pylint and capture its output, ignoring stderr for now to avoid noisy output in case of parsing errors
+        # The exit code of pylint will be handled by the shell command, and if non-zero, it will fail the step.
+        pylint_output=$(eval "$PYLINT_COMMAND" 2>&1 || true)
         
-        echo "Files to analyze: $MAIN_FILES"
-        
-        if [ -z "$MAIN_FILES" ]; then
-          echo "❌ No Python files found to analyze"
-          echo "score=0" >> $GITHUB_OUTPUT
-          exit 0
-        fi
-        
-        # Run pylint and capture output
-        pylint_output=$(pylint $MAIN_FILES --rcfile=.pylintrc --exit-zero 2>&1)
         echo "$pylint_output"
         
-        # Try different patterns to extract score
-        score=$(echo "$pylint_output" | grep -E "Your code has been rated at" | grep -oE "[0-9]+\.[0-9]+" | head -1)
-        
-        if [ -z "$score" ]; then
-          # Try alternative pattern
-          score=$(echo "$pylint_output" | grep -E "rated at" | grep -oE "[0-9]+\.[0-9]+" | head -1)
+        # Extract score reliably
+        score_line=$(echo "$pylint_output" | grep -E "Your code has been rated at")
+        if [ -n "$score_line" ]; then
+          PYLINT_SCORE=$(echo "$score_line" | grep -oE "[0-9]+\.[0.9]+" | head -1)
         fi
         
-        if [ -z "$score" ]; then
-          # If still no score, check if pylint ran successfully
-          if echo "$pylint_output" | grep -q "error"; then
-            echo "⚠️  Pylint encountered errors"
-            score="0"
-          else
-            # Assume perfect score if no issues found
-            score="10.0"
-          fi
+        echo "Pylint Score: $PYLINT_SCORE"
+        echo "score=$PYLINT_SCORE" >> $GITHUB_OUTPUT
+        
+        # Check against fail-under threshold explicitly
+        FAIL_UNDER=$(grep "fail-under" config/.pylintrc | head -1 | cut -d'=' -f2 | tr -d ' ')
+        if [ -z "$FAIL_UNDER" ]; then
+          FAIL_UNDER="0.0" # Default if not found
         fi
         
-        echo "✅ Pylint score: $score"
-        echo "score=$score" >> $GITHUB_OUTPUT
+        echo "Configured fail-under: $FAIL_UNDER"
         
-    - name: Check if score is valid
-      run: |
-        score="${{ steps.run-pylint.outputs.score }}"
-        
-        if [ "$score" = "0" ]; then
-          echo "⚠️  Warning: Score is 0. This might mean no Python files were analyzed."
-          echo "Check the 'List Python files' step above to see what files were found."
-        elif [ "$score" = "10.0" ]; then
-          echo "🎉 Perfect score! Either your code is excellent or Pylint didn't find any files."
+        # Use awk for floating point comparison
+        if (( $(echo "$PYLINT_SCORE < $FAIL_UNDER" | bc -l) )); then
+          echo "❌ Pylint score ($PYLINT_SCORE) is below the configured fail-under threshold ($FAIL_UNDER)."
+          exit 1
         else
-          echo "📈 Score: $score/10"
-          
-          # Convert to integer for comparison
-          score_int=$(echo "$score" | cut -d. -f1)
-          
-          if [ "$score_int" -lt 6 ]; then
-            echo "❌ Score below 6.0 - needs improvement"
-            exit 1
-          elif [ "$score_int" -lt 8 ]; then
-            echo "⚠️  Score between 6.0-7.9 - acceptable"
-          else
-            echo "✅ Score 8.0+ - excellent!"
-          fi
+          echo "✅ Pylint score ($PYLINT_SCORE) meets or exceeds the configured fail-under threshold ($FAIL_UNDER)."
         fi
         
     - name: Create summary report
@@ -145,11 +91,8 @@ jobs:
         echo ""
         echo "Python Version: ${{ matrix.python-version }}"
         echo "Pylint Score: ${{ steps.run-pylint.outputs.score || 'N/A' }}/10"
-        echo ""
-        echo "📁 Files analyzed:"
-        find . -name "*.py" -not -path "*/__pycache__/*" -not -path "*/.venv/*" -not -path "*/venv/*" | head -10
+        echo "Configured Fail-Under: ${{ steps.get-fail-under.outputs.fail_under || 'N/A' }}"
         echo ""
         echo "✅ Next steps:"
-        echo "1. Aim for a score above 7.0"
-        echo "2. Fix any reported issues"
-        echo "3. Add more Python files to the analysis"
+        echo "1. Ensure score meets or exceeds the 'fail-under' threshold."
+        echo "2. Fix any reported Pylint issues."

@@ -51,6 +51,18 @@ scanner:
     # - "8.8.8.8"
     # - "1.1.1.1"
   
+  accept_encoding_headers:
+    - "gzip, deflate, br"
+    - "gzip, deflate"
+    - "br"
+  dnt_headers:
+    - "1" # Do Not Track enabled
+    - "0" # Do Not Track disabled
+  connection_headers:
+    - "keep-alive"
+    - "close"
+  custom_header_chance: 0.8 # Chance (0.0 to 1.0) of adding dynamic headers like Accept-Encoding, DNT, Connection
+
   # Platform configurations (these are mostly internal to ProductionScanner for now)
   platforms:
     twitter:

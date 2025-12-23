@@ -279,7 +279,7 @@ class AdvancedAnalysisEngine:
         score = 0.0
 
         if correlation.common_patterns:
-            score += 0.3 * min(len(correlation.common_patterns) / 3, 1.0)
+            score += 0.3 * min(len(correlation.common_patterns) / 3,1.0)
         
         if correlation.likely_connections:
             score += 0.4 * min(len(correlation.likely_connections) / 5, 1.0)
