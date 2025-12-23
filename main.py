@@ -606,7 +606,11 @@ class CommandCenter:
         self.terminal.console.print(summary_panel)
 
         # Results Table
-        results_table = Table(title="Platform Scan Results", border_style="magenta")
+        table_title = "Platform Scan Results"
+        results_table = Table(  # pylint: disable=line-too-long
+            title=table_title,
+            border_style="magenta"
+        )
         results_table.add_column("Platform", style="cyan", no_wrap=True)
         results_table.add_column("Status", style="green")
         results_table.add_column("URL", style="yellow")
@@ -861,7 +865,8 @@ class CommandCenter:
             for target_info in summary.get("top_targets_by_profiles_found", [])[:5]:
                 content += (
                     f"  {target_info.get('target', 'Unknown')}: "
-                    f"{target_info.get('profiles_found_count', 0)} profiles\n"
+                    f"{target_info.get('profiles_found_count', 0)} "
+                    "profiles\n"
                 )
 
             content += "\nPlatform Activity:\n"

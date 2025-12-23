@@ -26,7 +26,8 @@ disable=
     unused-wildcard-import,
     too-many-positional-arguments,
     trailing-whitespace,
-    unused-variable
+    unused-variable,
+    line-too-long
 
 enable=c-extension-no-member, missing-module-docstring, missing-class-docstring, missing-function-docstring, consider-using-f-string
 
