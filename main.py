@@ -45,6 +45,7 @@ try:
     from core.analysis import AdvancedAnalysisEngine
     from core.audit import AuditLogger
     from core.models import AuditAction, AuditLogEntry, PlatformResult, ScanAnalysis
+    from core.integration import IntegrationCoordinator, ScanPriority, ExportFormat
     from ui.banner import Banner, BannerColorScheme
     from ui.menu import Menu, MenuColorScheme
     from ui.terminal import Terminal, TerminalColorScheme
@@ -521,6 +522,7 @@ class CommandCenter:
         self.db = DatabaseManager()
         self.audit_logger = AuditLogger(db_path=str(BASE_DIR / "data" / "audit.db"))
         self.analysis_engine = AdvancedAnalysisEngine()
+        self.coordinator = IntegrationCoordinator()
         self.running = True
 
         signal.signal(signal.SIGINT, self._handle_signal)
@@ -571,6 +573,20 @@ class CommandCenter:
             "View overall intelligence summary",
             icon="📈",
             action=self.handle_intelligence_summary
+        )
+        self.menu.add_item(
+            "7",
+            "View Batch Job Status",
+            "View status of all active batch jobs",
+            icon="📋",
+            action=self.handle_view_batch_jobs
+        )
+        self.menu.add_item(
+            "8",
+            "View Metrics",
+            "Display aggregated scan metrics",
+            icon="📊",
+            action=self.handle_view_metrics
         )
         self.menu.add_item(
             "0",
@@ -743,20 +759,57 @@ class CommandCenter:
             self.menu.display_warning("Operation cancelled")
             return
 
-        targets = [t.strip() for t in targets_input.split(",")]
-        self.menu.display_processing(f"Processing {len(targets)} targets...")
+        usernames = [t.strip() for t in targets_input.split(",")]
 
-        for target in targets:
-            await self.db.save_result(
-                target=target,
-                platform="batch_scan",
-                status="COMPLETED",
-                scan_type="batch",
-                details={"batch_size": len(targets)}
+        # Prompt for export formats
+        export_choices = {
+            "1": ExportFormat.JSON,
+            "2": ExportFormat.CSV,
+            "3": ExportFormat.TEXT,
+            "4": ExportFormat.HTML,
+        }
+        export_format_options_str = (
+            "1: JSON, 2: CSV, 3: TEXT, 4: HTML (comma-separated, e.g., 1,3)"
+        )
+        selected_formats = []
+        while True:
+            format_input = self.menu.prompt_input(
+                f"SELECT EXPORT FORMATS ({export_format_options_str} - empty for default JSON,HTML)"
             )
-            await asyncio.sleep(0.2)
+            if not format_input:
+                selected_formats = [ExportFormat.JSON, ExportFormat.HTML]
+                break
+            
+            try:
+                choices = [c.strip() for c in format_input.split(",")]
+                temp_formats = []
+                for choice in choices:
+                    if choice in export_choices:
+                        temp_formats.append(export_choices[choice])
+                    else:
+                        self.menu.display_warning(f"Invalid format choice: {choice}")
+                if temp_formats:
+                    selected_formats = temp_formats
+                    break
+                else:
+                    self.menu.display_warning("No valid export formats selected. Please try again.")
+            except Exception: # pylint: disable=broad-except
+                self.menu.display_warning("Invalid input. Please use comma-separated numbers.")
 
-        self.menu.display_success(f"Batch scan completed for {len(targets)} targets")
+
+        self.menu.display_processing(f"Initiating batch scan for {len(usernames)} targets...")
+
+        job = self.coordinator.execute_batch_scan(
+            usernames=usernames,
+            priority=ScanPriority.NORMAL, # Default to NORMAL priority for now
+            export_formats=selected_formats
+        )
+        # The orchestration is handled internally by IntegrationCoordinator,
+        # so we just need to confirm the job creation.
+        self.menu.display_success(
+            f"Batch scan job '{job.job_id}' created for {len(usernames)} targets. "
+            f"Status: {job.status}"
+        )
         self.menu.prompt_selection("PRESS ENTER TO CONTINUE")
 
     async def handle_search_history(self) -> None:
@@ -877,6 +930,22 @@ class CommandCenter:
         else:
             self.menu.display_warning("Unable to retrieve summary")
 
+        self.menu.prompt_selection("PRESS ENTER TO CONTINUE")
+
+    async def handle_view_batch_jobs(self) -> None:
+        """Handle viewing batch job status."""
+        self.terminal.clear()
+        self.banner.display("dashboard", animate=False)
+        self.menu.display_info("BATCH JOB STATUS")
+        self.coordinator.display_all_jobs()
+        self.menu.prompt_selection("PRESS ENTER TO CONTINUE")
+
+    async def handle_view_metrics(self) -> None:
+        """Handle viewing aggregated scan metrics."""
+        self.terminal.clear()
+        self.banner.display("dashboard", animate=False)
+        self.menu.display_info("AGGREGATED SCAN METRICS")
+        self.coordinator.display_metrics()
         self.menu.prompt_selection("PRESS ENTER TO CONTINUE")
 
     async def handle_exit(self) -> None:
