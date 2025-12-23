@@ -332,6 +332,160 @@ class DatabaseManager:
             )
             return {}
 
+    async def get_correlated_target_profiles(self, target: str) -> Dict[str, Any]:
+        """
+        Retrieves and correlates all scan results for a given target across platforms.
+        Returns a dictionary grouping results by platform and status, including historical data.
+        """
+        def _get_profiles():
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT platform, status, url, timestamp, created_at, details
+                FROM scan_results
+                WHERE target = ?
+                ORDER BY created_at DESC
+            """,
+                (target,),
+            )
+            raw_results = cursor.fetchall()
+
+            correlated_data: Dict[str, Any] = {
+                "target": target,
+                "profiles_by_platform": {},
+                "status_counts": {},
+                "history_summary": []
+            }
+
+            for row in raw_results:
+                platform = row["platform"]
+                status = row["status"]
+
+                if platform not in correlated_data["profiles_by_platform"]:
+                    correlated_data["profiles_by_platform"][platform] = []
+                correlated_data["profiles_by_platform"][platform].append({
+                    "status": status,
+                    "url": row["url"],
+                    "timestamp": row["timestamp"],
+                    "created_at": row["created_at"],
+                    "details": json.loads(row["details"]) if row["details"] else None
+                })
+
+                correlated_data["status_counts"][status] = correlated_data["status_counts"].get(status, 0) + 1
+                correlated_data["history_summary"].append(f"{platform}: {status} on {row['created_at']}")
+            
+            conn.close()
+            return correlated_data
+
+        try:
+            return await self._execute_db_operation(_get_profiles)
+        except (sqlite3.Error, OSError) as err:
+            error_handler.handle_database_error(
+                f"Correlation query failed for target {target}: {err}",
+                operation="get_correlated_target_profiles",
+                context={"target": target},
+            )
+            return {"target": target, "profiles_by_platform": {}, "status_counts": {}, "history_summary": [], "error": str(err)}
+
+
+    async def get_overall_correlation_summary(self, limit_targets: int = 10) -> Dict[str, Any]:
+        """
+        Provides an overall summary of correlation insights across all scanned targets.
+        Includes top targets by profiles found, platforms with most activity, etc.
+        """
+        def _get_summary():
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            summary_data: Dict[str, Any] = {
+                "total_scans_recorded": 0,
+                "unique_targets_scanned": 0,
+                "top_targets_by_profiles_found": [],
+                "platforms_activity": {},
+                "status_distribution": {},
+                "recent_activity_overview": []
+            }
+
+            # Total scans recorded
+            cursor.execute("SELECT COUNT(*) FROM scan_results")
+            summary_data["total_scans_recorded"] = cursor.fetchone()[0]
+
+            # Unique targets scanned
+            cursor.execute("SELECT COUNT(DISTINCT target) FROM scan_results")
+            summary_data["unique_targets_scanned"] = cursor.fetchone()[0]
+
+            # Top targets by profiles found
+            cursor.execute(
+                """
+                SELECT target, COUNT(DISTINCT platform) as profiles_found_count
+                FROM scan_results
+                WHERE status = 'found'
+                GROUP BY target
+                ORDER BY profiles_found_count DESC, target ASC
+                LIMIT ?
+                """,
+                (limit_targets,)
+            )
+            summary_data["top_targets_by_profiles_found"] = [dict(row) for row in cursor.fetchall()]
+
+            # Platforms activity (total scans, found, blocked, etc.)
+            cursor.execute(
+                """
+                SELECT platform, status, COUNT(*) as count
+                FROM scan_results
+                GROUP BY platform, status
+                ORDER BY platform, status
+                """
+            )
+            platform_stats_raw = cursor.fetchall()
+            for row in platform_stats_raw:
+                platform = row["platform"]
+                status = row["status"]
+                count = row["count"]
+                if platform not in summary_data["platforms_activity"]:
+                    summary_data["platforms_activity"][platform] = {"total": 0, "found": 0, "not_found": 0, "blocked": 0, "error": 0, "rate_limited": 0}
+                summary_data["platforms_activity"][platform]["total"] += count
+                summary_data["platforms_activity"][platform][status] = summary_data["platforms_activity"][platform].get(status, 0) + count
+            
+            # Status distribution
+            cursor.execute(
+                """
+                SELECT status, COUNT(*) as count
+                FROM scan_results
+                GROUP BY status
+                ORDER BY count DESC
+                """
+            )
+            summary_data["status_distribution"] = {row["status"]: row["count"] for row in cursor.fetchall()}
+
+            # Recent activity overview
+            cursor.execute(
+                """
+                SELECT target, platform, status, created_at
+                FROM scan_results
+                ORDER BY created_at DESC
+                LIMIT 5
+                """
+            )
+            summary_data["recent_activity_overview"] = [dict(row) for row in cursor.fetchall()]
+
+            conn.close()
+            return summary_data
+
+        try:
+            return await self._execute_db_operation(_get_summary)
+        except (sqlite3.Error, OSError) as err:
+            error_handler.handle_database_error(
+                f"Overall correlation summary query failed: {err}",
+                operation="get_overall_correlation_summary",
+                context={},
+            )
+            return {"error": str(err)}
+
 
 # ============================================================================
 # COMMAND CENTER HANDLERS (Separate Module)
@@ -351,7 +505,7 @@ class CommandCenterHandlers:
 
         self.cc.menu.display_info("SINGLE TARGET SCAN - Username Intelligence")
 
-        username = await self.cc.menu.prompt(
+        username = self.cc.menu.prompt(
             "ENTER TARGET USERNAME (or 'back' to return)"
         )
 
@@ -360,15 +514,14 @@ class CommandCenterHandlers:
 
         if not self.cc.scanner:
             self.cc.menu.display_error("Scanner not available.")
-            await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+            self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
             return
 
         self.cc.terminal.write_info(f"\nScanning: {username}")
 
         try:
-            async with self.cc.scanner as scanner_instance:
-                result = await scanner_instance.scan_username(username)
-                await self._display_scan_results(result)
+            result = await self.cc.scanner.scan_username(username)
+            await self._display_scan_results(result)
 
                 for _, data in result.platforms.items():
                     await self.cc.db.save_result(
@@ -389,7 +542,7 @@ class CommandCenterHandlers:
             )
             self.cc.menu.display_error(f"Scan failed: {err}")
 
-        await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+        self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
 
     async def _display_scan_results(self, result) -> None:
         """Display scan results"""
@@ -436,7 +589,7 @@ class CommandCenterHandlers:
 
         self.cc.menu.display_info("BATCH OPERATIONS - Multiple Target Intelligence")
 
-        targets_input = await self.cc.menu.prompt(
+        targets_input = self.cc.menu.prompt(
             "ENTER TARGETS (comma-separated) or 'back'"
         )
 
@@ -447,12 +600,12 @@ class CommandCenterHandlers:
 
         if not targets:
             self.cc.menu.display_warning("No valid targets entered")
-            await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+            self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
             return
 
         if not self.cc.scanner:
             self.cc.menu.display_error("Scanner not available.")
-            await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+            self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
             return
 
         self.cc.menu.display_info(f"Processing {len(targets)} targets...")
@@ -462,9 +615,8 @@ class CommandCenterHandlers:
                 len(targets), "Batch Scanning..."
             ) as progress:
                 task = progress.add_task("scan", total=len(targets))
-                async with self.cc.scanner as scanner_instance:
-                    for target in targets:
-                        result = await scanner_instance.scan_username(target)
+                for target in targets:
+                    result = await self.cc.scanner.scan_username(target)
 
                         for _, data in result.platforms.items():
                             await self.cc.db.save_result(
@@ -488,7 +640,7 @@ class CommandCenterHandlers:
             )
             self.cc.menu.display_error(f"Batch scan failed: {err}")
 
-        await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+        self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
 
     async def handle_dashboard(self) -> None:
         """Display intelligence dashboard"""
@@ -523,6 +675,55 @@ class CommandCenterHandlers:
 
         self.cc.menu.display_table(headers, rows, "SYSTEM STATISTICS")
 
+        # --- Correlation Engine Insights ---
+        correlation_summary = await self.cc.db.get_overall_correlation_summary()
+        if correlation_summary and not correlation_summary.get("error"):
+            self.cc.menu.display_info("CORRELATION INSIGHTS")
+            
+            # Top Targets by Profiles Found
+            top_targets_headers = ["Target", "Profiles Found"]
+            top_targets_rows = []
+            for entry in correlation_summary.get("top_targets_by_profiles_found", []):
+                top_targets_rows.append([entry["target"], str(entry["profiles_found_count"])])
+            if top_targets_rows:
+                self.cc.menu.display_table(top_targets_headers, top_targets_rows, "TOP TARGETS (by profiles found)")
+
+            # Platform Activity
+            platform_activity_headers = ["Platform", "Total", "Found", "Blocked", "Error"]
+            platform_activity_rows = []
+            for platform, data in correlation_summary.get("platforms_activity", {}).items():
+                platform_activity_rows.append([
+                    platform,
+                    str(data.get("total", 0)),
+                    str(data.get("found", 0)),
+                    str(data.get("blocked", 0)),
+                    str(data.get("error", 0))
+                ])
+            if platform_activity_rows:
+                self.cc.menu.display_table(platform_activity_headers, platform_activity_rows, "PLATFORM ACTIVITY")
+
+            # Status Distribution
+            status_dist_headers = ["Status", "Count"]
+            status_dist_rows = []
+            for status, count in correlation_summary.get("status_distribution", {}).items():
+                status_dist_rows.append([status, str(count)])
+            if status_dist_rows:
+                self.cc.menu.display_table(status_dist_headers, status_dist_rows, "GLOBAL STATUS DISTRIBUTION")
+
+            # Recent Activity Overview
+            recent_activity_headers = ["Target", "Platform", "Status", "Time"]
+            recent_activity_rows = []
+            for entry in correlation_summary.get("recent_activity_overview", []):
+                recent_activity_rows.append([
+                    entry["target"],
+                    entry["platform"],
+                    str(self._get_styled_status(entry["status"])), # Use styled status
+                    datetime.fromisoformat(entry["created_at"]).strftime("%Y-%m-%d %H:%M")
+                ])
+            if recent_activity_rows:
+                self.cc.menu.display_table(recent_activity_headers, recent_activity_rows, "RECENT ACTIVITY OVERVIEW")
+
+
         if stats.get("platforms"):
             platform_rows = []
             for platform, count in stats["platforms"].items():
@@ -532,7 +733,7 @@ class CommandCenterHandlers:
                 ["Platform", "Scans"], platform_rows, "PLATFORM BREAKDOWN"
             )
 
-        await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+        self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
 
     async def handle_scan_history(self) -> None:
         """Display scan history"""
@@ -545,7 +746,7 @@ class CommandCenterHandlers:
 
         if not history:
             self.cc.menu.display_warning("No scan history available")
-            await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+            self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
             return
 
         headers = ["#", "Target", "Platform", "Status", "Date"]
@@ -569,7 +770,7 @@ class CommandCenterHandlers:
             headers, rows, f"RECENT SCANS (Total: {len(history)})"
         )
 
-        search = await self.cc.menu.prompt("SEARCH BY TARGET (or 'back')")
+        search = self.cc.menu.prompt("SEARCH BY TARGET (or 'back')")
 
         if search and search.lower() not in ["back", "0"]:
             results = await self.cc.db.search_results(search)
@@ -594,7 +795,7 @@ class CommandCenterHandlers:
                     headers, search_rows, f"SEARCH RESULTS - {search}"
                 )
 
-        await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+        self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
 
     async def handle_export(self) -> None:
         """Handle data export"""
@@ -613,7 +814,7 @@ class CommandCenterHandlers:
         for key, option in export_options.items():
             print(f"  [{key}] {option}")
 
-        choice = await self.cc.menu.prompt("SELECT EXPORT TYPE")
+        choice = self.cc.menu.prompt("SELECT EXPORT TYPE")
 
         if choice == "1":
             await self._export_history()
@@ -623,7 +824,7 @@ class CommandCenterHandlers:
             await self._export_backup()
 
         if choice in ["1", "2", "3"]:
-            await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+            self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
 
     async def _export_history(self) -> None:
         """Export scan history to JSON"""
@@ -701,7 +902,7 @@ class CommandCenterHandlers:
         for key, option in config_menu.items():
             print(f"  [{key}] {option}")
 
-        choice = await self.cc.menu.prompt("SELECT OPTION")
+        choice = self.cc.menu.prompt("SELECT OPTION")
 
         if choice == "1":
             await self._select_color_scheme()
@@ -714,7 +915,7 @@ class CommandCenterHandlers:
             self.cc.menu.display_info(f"Animation: {animation_status}")
             self.cc.banner.set_animation(not self.cc.banner.animations_enabled)
 
-        await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+        self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
 
     async def _select_color_scheme(self) -> None:
         """Select color scheme"""
@@ -740,7 +941,7 @@ class CommandCenterHandlers:
         for key, (name, _, _) in schemes.items():
             print(f"  [{key}] {name}")
 
-        choice = await self.cc.menu.prompt("SELECT SCHEME")
+        choice = self.cc.menu.prompt("SELECT SCHEME")
 
         if choice in schemes:
             name, banner_scheme, menu_scheme = schemes[choice]
@@ -758,7 +959,7 @@ class CommandCenterHandlers:
         for key, name in themes.items():
             print(f"  [{key}] {name}")
 
-        choice = await self.cc.menu.prompt("SELECT THEME")
+        choice = self.cc.menu.prompt("SELECT THEME")
 
         if choice in themes:
             name = themes[choice]
@@ -791,7 +992,7 @@ class CommandCenterHandlers:
             ["Component", "Status"], status_rows, "SYSTEM HEALTH"
         )
 
-        await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+        self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
 
     async def handle_documentation(self) -> None:
         """Display documentation"""
@@ -821,7 +1022,7 @@ class CommandCenterHandlers:
 
         self.cc.menu.display_box("HELP & DOCUMENTATION", docs)
 
-        await self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
+        self.cc.menu.prompt("PRESS ENTER TO CONTINUE")
 
 
 # ============================================================================
@@ -914,6 +1115,9 @@ class HandyOsintCommandCenter:
             self.banner.display("main", animate=True)
             await asyncio.sleep(1)
 
+            if self.scanner:
+                await self.scanner.__aenter__()
+
             scanner_status = "✅ Available" if SCANNER_AVAILABLE else "❌ Not Available"
             docs_status = "✅ Available" if DOCS_AVAILABLE else "⚠️ Limited"
 
@@ -948,7 +1152,7 @@ class HandyOsintCommandCenter:
             self.banner.display("main")
             self.menu.display()
 
-            choice = await self.menu.prompt("SELECT OPTION")
+            choice = self.menu.prompt("SELECT OPTION")
 
             try:
                 if choice == "1":
@@ -980,6 +1184,8 @@ class HandyOsintCommandCenter:
                 await asyncio.sleep(2)
 
         # Shutdown sequence
+        if self.scanner:
+            await self.scanner.close()
         self.terminal.clear()
         self.terminal.shutdown_sequence()
         logger.info("Session ended. Total scans: %d", self.get_session_scans())

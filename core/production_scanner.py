@@ -230,7 +230,6 @@ class ProductionScanner:
         self.total_requests = 0
         self.cache = RedisCache()  # Initialize RedisCache
         self.rate_limiters: Dict[str, float] = {}
-        self.proxy_pool = deque(self.PROXIES) if self.PROXIES else None
 
         logger.info(
             f"ProductionScanner initialized with {len(self.platforms)} platforms"
@@ -537,7 +536,7 @@ class ProductionScanner:
             # Main request block
             try:
                 async with self.session.get(
-                    url, headers=request_headers, allow_redirects=True, ssl=True, proxy=proxy_url
+                    url, headers=request_headers, allow_redirects=True, proxy=proxy_url
                 ) as response:
                     response_time = time.time() - start_time
                     self.request_count += 1
@@ -548,20 +547,9 @@ class ProductionScanner:
                     try:
                         content = await response.text()
                     except aiohttp.ClientPayloadError:
-                        return ScanResultDetail(
-                            platform=platform.name,
-                            platform_id=platform_name,
-                            url=url,
-                            status=ScanStatus.ERROR.value,
-                            response_time=time.time() - start_time,
-                            error="Payload error",
+                            platform_id=platform.name,
                         )
-                    except Exception as e:
-                        logger.error(f"Error reading response content from {url}: {e}")
-                        return ScanResultDetail(
-                            platform=platform.name,
-                            platform_id=platform_name,
-                            url=url,
+                        platform_id=platform.name,
                             status=ScanStatus.ERROR.value,
                             response_time=time.time() - start_time,
                             error=f"Error reading content: {e}",
@@ -604,8 +592,7 @@ class ProductionScanner:
 
                     result = ScanResultDetail(
                         platform=platform.name,
-                        platform_id=url.split("/")[2],
-                        url=str(response.url),
+                                                    platform_id=platform.name,                        url=str(response.url),
                         status=status,
                         status_code=response.status,
                         response_time=response_time,
@@ -621,7 +608,7 @@ class ProductionScanner:
                 response_time = time.time() - start_time
                 result = ScanResultDetail(
                     platform=platform.name,
-                    platform_id=platform_name,
+                    platform_id=platform.name,
                     url=url,
                     status=ScanStatus.TIMEOUT.value,
                     response_time=response_time,
@@ -640,7 +627,7 @@ class ProductionScanner:
                 response_time = time.time() - start_time
                 result = ScanResultDetail(
                     platform=platform.name,
-                    platform_id=platform_name,
+                    platform_id=platform.name,
                     url=url,
                     status=ScanStatus.ERROR.value, # or a new ScanStatus.PROXY_ERROR
                     response_time=response_time,
@@ -657,7 +644,7 @@ class ProductionScanner:
             except aiohttp.ClientHttpProxyError as e:
                 return ScanResultDetail(
                     platform=platform.name,
-                    platform_id=platform_name,
+                    platform_id=platform.name,
                     url=url,
                     status=ScanStatus.ERROR.value,
                     response_time=time.time() - start_time,
@@ -668,7 +655,7 @@ class ProductionScanner:
                 response_time = time.time() - start_time
                 result = ScanResultDetail(
                     platform=platform.name,
-                    platform_id=platform_name,
+                    platform_id=platform.name,
                     url=url,
                     status=ScanStatus.ERROR.value,
                     response_time=response_time,
@@ -686,7 +673,7 @@ class ProductionScanner:
                 response_time = time.time() - start_time
                 result = ScanResultDetail(
                     platform=platform.name,
-                    platform_id=platform_name,
+                    platform_id=platform.name,
                     url=url,
                     status=ScanStatus.ERROR.value,
                     response_time=response_time,
@@ -699,7 +686,7 @@ class ProductionScanner:
             response_time = time.time() - start_time
             result = ScanResultDetail(
                 platform=platform.name,
-                platform_id=platform_name,
+                platform_id=platform.name,
                 url=url,
                 status=ScanStatus.ERROR.value,
                 response_time=response_time,
@@ -766,8 +753,7 @@ class ProductionScanner:
         self, username: str, platforms: Optional[List[str]] = None
     ) -> UsernameSearchResult:
         """Scan username across multiple platforms"""
-        logger.info(f"Starting scan for username: {username}")
-
+        self.request_count = 0  # Reset for each scan operation
         start_time = time.time()
 
         # Validate username
