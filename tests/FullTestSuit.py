@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """
-╔═══════════════════════════════════════════════════════════════════════════╗
-║                  HANDYOSINT ENTERPRISE TEST SUITE v3.0                    ║
-║         Real Production Tests - MERGED COMPREHENSIVE SUITE                ║
-║     Rich Visuals + Real Database + All Original Tests + Performance       ║
-╚═══════════════════════════════════════════════════════════════════════════╝
+HANDYOSINT ENTERPRISE TEST SUITE v3.0
+Real Production Tests - MERGED COMPREHENSIVE SUITE
+Rich Visuals + Real Database + All Original Tests + Performance
 """
 
 import sys
@@ -17,15 +15,16 @@ import tempfile
 import shutil
 import hashlib
 import time
-import yaml
 import threading
 import queue
 import asyncio
+import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Optional, Any
 from contextlib import contextmanager
 from unittest.mock import Mock, AsyncMock
+import yaml
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 
@@ -91,19 +90,19 @@ class EnhancedTestDisplay:
         self.console.print()
         header = Text()
         header.append(
-            "╔══════════════════════════════════════════════════════════════════════════════╗\n",
+            "╔══════════════════════════════════════════════════════════════════╗\n",
             style="bold bright_magenta",
         )
         header.append(
-            "║              HANDYOSINT ENTERPRISE TEST SUITE v3.0 MERGED                 ║\n",
+            "║              HANDYOSINT ENTERPRISE TEST SUITE v3.0           ║\n",
             style="bold bright_magenta",
         )
         header.append(
-            "║  Real Production + Rich Reporting + All Original Tests + Performance      ║\n",
+            "║  Real Production + Rich Reporting + All Original Tests      ║\n",
             style="bold bright_magenta",
         )
         header.append(
-            "╚══════════════════════════════════════════════════════════════════════════════╝",
+            "╚══════════════════════════════════════════════════════════════════╝",
             style="bold bright_magenta",
         )
         self.console.print(header)
@@ -166,7 +165,7 @@ class DatabaseManager:
             self.cursor = self.connection.cursor()
             return True
         except sqlite3.Error as e:
-            logging.error(f"Database connection error: {e}")
+            logging.error("Database connection error: %s", e)
             return False
 
     def initialize_tables(self) -> bool:
@@ -244,7 +243,7 @@ class DatabaseManager:
             return True
 
         except sqlite3.Error as e:
-            logging.error(f"Table creation error: {e}")
+            logging.error("Table creation error: %s", e)
             return False
 
     def create_indexes(self) -> bool:
@@ -265,7 +264,7 @@ class DatabaseManager:
             return True
 
         except sqlite3.Error as e:
-            logging.error(f"Index creation error: {e}")
+            logging.error("Index creation error: %s", e)
             return False
 
     def insert_scan_result(
@@ -282,13 +281,14 @@ class DatabaseManager:
         """Insert scan result into database"""
         scan_id = self._generate_scan_id(target, platform)
         timestamp = created_at if created_at else datetime.now().isoformat()
-    
+
         try:
             with self._lock:
                 self.cursor.execute(
                     """
                     INSERT OR REPLACE INTO scan_results
-                    (scan_id, timestamp, target, platform, status, url, details, scan_type, confidence_score, created_at)
+                    (scan_id, timestamp, target, platform, status, url, details,
+                     scan_type, confidence_score, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
@@ -308,7 +308,7 @@ class DatabaseManager:
                 return self.cursor.lastrowid
 
         except sqlite3.Error as e:
-            logging.error(f"Insert error: {e}")
+            logging.error("Insert error: %s", e)
             return -1
 
     def get_scan_results_by_target(self, target: str) -> List[Dict]:
@@ -320,7 +320,7 @@ class DatabaseManager:
             )
             return [dict(row) for row in self.cursor.fetchall()]
         except sqlite3.Error as e:
-            logging.error(f"Query error: {e}")
+            logging.error("Query error: %s", e)
             return []
 
     def get_scan_results_by_platform(
@@ -330,7 +330,8 @@ class DatabaseManager:
         try:
             if status:
                 self.cursor.execute(
-                    "SELECT * FROM scan_results WHERE platform = ? AND status = ? ORDER BY timestamp DESC",
+                    "SELECT * FROM scan_results WHERE platform = ? AND status = ? "
+                    "ORDER BY timestamp DESC",
                     (platform, status),
                 )
             else:
@@ -340,7 +341,7 @@ class DatabaseManager:
                 )
             return [dict(row) for row in self.cursor.fetchall()]
         except sqlite3.Error as e:
-            logging.error(f"Query error: {e}")
+            logging.error("Query error: %s", e)
             return []
 
     def get_statistics(self) -> Dict[str, Any]:
@@ -375,7 +376,7 @@ class DatabaseManager:
             return stats
 
         except sqlite3.Error as e:
-            logging.error(f"Statistics error: {e}")
+            logging.error("Statistics error: %s", e)
             return stats
 
     def create_batch_scan(self, batch_id: str, total_targets: int) -> bool:
@@ -392,7 +393,7 @@ class DatabaseManager:
                 self.connection.commit()
             return True
         except sqlite3.Error as e:
-            logging.error(f"Batch scan error: {e}")
+            logging.error("Batch scan error: %s", e)
             return False
 
     def update_batch_scan(
@@ -403,7 +404,7 @@ class DatabaseManager:
             with self._lock:
                 self.cursor.execute(
                     """
-                    UPDATE batch_scans 
+                    UPDATE batch_scans
                     SET completed_targets = ?, status = ?
                     WHERE batch_id = ?
                 """,
@@ -412,7 +413,7 @@ class DatabaseManager:
                 self.connection.commit()
             return True
         except sqlite3.Error as e:
-            logging.error(f"Update error: {e}")
+            logging.error("Update error: %s", e)
             return False
 
     def get_batch_scan(self, batch_id: str) -> Optional[Dict]:
@@ -424,7 +425,7 @@ class DatabaseManager:
             row = self.cursor.fetchone()
             return dict(row) if row else None
         except sqlite3.Error as e:
-            logging.error(f"Query error: {e}")
+            logging.error("Query error: %s", e)
             return None
 
     def log_operation(
@@ -445,7 +446,7 @@ class DatabaseManager:
             )
             self.connection.commit()
         except sqlite3.Error as e:
-            logging.error(f"Audit log error: {e}")
+            logging.error("Audit log error: %s", e)
 
     def delete_old_scans(self, days: int = 30) -> int:
         """Delete scans older than specified days"""
@@ -454,7 +455,7 @@ class DatabaseManager:
             with self._lock:
                 self.cursor.execute(
                     """
-                    DELETE FROM scan_results 
+                    DELETE FROM scan_results
                     WHERE created_at < ?
                 """,
                     (cutoff_date.isoformat(),),
@@ -463,7 +464,7 @@ class DatabaseManager:
                 self.connection.commit()
             return affected_rows
         except sqlite3.Error as e:
-            logging.error(f"Delete error: {e}")
+            logging.error("Delete error: %s", e)
             return 0
 
     def export_to_json(self, output_path: Path) -> bool:
@@ -476,8 +477,8 @@ class DatabaseManager:
                 json.dump(rows, f, indent=2, default=str)
 
             return True
-        except Exception as e:
-            logging.error(f"Export error: {e}")
+        except (sqlite3.Error, OSError) as e:
+            logging.error("Export error: %s", e)
             return False
 
     def backup_database(self, backup_path: Path) -> bool:
@@ -487,8 +488,8 @@ class DatabaseManager:
             shutil.copy2(self.db_path, backup_path)
             self.connect()
             return True
-        except Exception as e:
-            logging.error(f"Backup error: {e}")
+        except (OSError, sqlite3.Error) as e:
+            logging.error("Backup error: %s", e)
             return False
 
     def close(self):
@@ -518,7 +519,7 @@ class ConfigurationManager:
     def load_config(self) -> bool:
         """Load YAML configuration"""
         if not self.config_path.exists():
-            logging.error(f"Config file not found: {self.config_path}")
+            logging.error("Config file not found: %s", self.config_path)
             return False
 
         try:
@@ -526,7 +527,7 @@ class ConfigurationManager:
                 self.config = yaml.safe_load(f) or {}
             return True
         except yaml.YAMLError as e:
-            logging.error(f"YAML parsing error: {e}")
+            logging.error("YAML parsing error: %s", e)
             return False
 
     def ensure_directories(self) -> bool:
@@ -544,8 +545,8 @@ class ConfigurationManager:
             for directory in directories:
                 directory.mkdir(exist_ok=True, parents=True)
             return True
-        except Exception as e:
-            logging.error(f"Directory creation error: {e}")
+        except OSError as e:
+            logging.error("Directory creation error: %s", e)
             return False
 
 
@@ -577,8 +578,12 @@ class EnterpriseLogger:
         )
         fh.setFormatter(formatter)
         logger.addHandler(fh)
-
         return logger
+
+    def log_test_result(self, test_name: str, passed: bool):
+        """Log test result"""
+        status = "PASSED" if passed else "FAILED"
+        self.logger.info("Test %s: %s", test_name, status)
 
 
 # ============================================================================
@@ -622,7 +627,7 @@ class DatabaseManagerTests(unittest.TestCase):
         self.assertTrue(expected_tables.issubset(tables))
 
     def test_database_init_creates_indexes(self):
-        """Test: Database creates proper indexes - WILL FAIL"""
+        """Test: Database creates proper indexes"""
         self.db_manager.initialize_tables()
         result = self.db_manager.create_indexes()
 
@@ -639,11 +644,9 @@ class DatabaseManagerTests(unittest.TestCase):
             "idx_platform",
             "idx_scan_type",
             "idx_status",
-            "idx_nonexistent",
         }
 
-        # Will FAIL - checking for non-existent index
-        self.assertTrue(expected_indexes.issubset(indexes) or True)
+        self.assertTrue(expected_indexes.issubset(indexes))
 
     def test_database_insert_scan_result(self):
         """Test: Insert scan result into database"""
@@ -693,13 +696,11 @@ class DatabaseManagerTests(unittest.TestCase):
                 status="FOUND" if i < 3 else "NOT_FOUND",
             )
 
-        found_results = self.db_manager.get_scan_results_by_platform("Twitter", "FOUND")
         all_results = self.db_manager.get_scan_results_by_platform("Twitter")
-
         self.assertEqual(len(all_results), 5)
 
     def test_database_statistics_query_failure(self):
-        """Test: Get database statistics - INTENTIONAL FAILURE"""
+        """Test: Get database statistics"""
         self.db_manager.initialize_tables()
 
         self.db_manager.insert_scan_result("user1", "Twitter", "FOUND")
@@ -751,7 +752,7 @@ class DatabaseManagerTests(unittest.TestCase):
             platform="GitHub",
             status="FOUND",
             created_at=old_date,
-            scan_type="OLD_SCAN"
+            scan_type="OLD_SCAN",
         )
 
         deleted = self.db_manager.delete_old_scans(days=30)
@@ -770,7 +771,7 @@ class DatabaseManagerTests(unittest.TestCase):
         self.assertTrue(success)
         self.assertTrue(export_path.exists())
 
-        with open(export_path, "r") as f:
+        with open(export_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         self.assertEqual(len(data), 3)
@@ -794,9 +795,9 @@ class DatabaseManagerTests(unittest.TestCase):
         results_queue = queue.Queue()
 
         def insert_concurrently(user_prefix, count):
-            for i in range(count):
+            for _ in range(count):
                 self.db_manager.insert_scan_result(
-                    f"{user_prefix}_{i}", "Twitter", "FOUND"
+                    f"{user_prefix}_{_}", "Twitter", "FOUND"
                 )
             results_queue.put("success")
 
@@ -816,7 +817,6 @@ class DatabaseManagerTests(unittest.TestCase):
     def test_bulk_insert_performance(self):
         """Test: Bulk insert performance (500 records)"""
         self.db_manager.initialize_tables()
-
         start_time = time.time()
 
         for i in range(500):
@@ -923,7 +923,7 @@ class DatabaseManagerTests(unittest.TestCase):
             try:
                 self.db_manager.insert_scan_result("user1", "Twitter", "FOUND")
                 results_queue.put("success")
-            except Exception as e:
+            except sqlite3.Error as e:
                 results_queue.put(f"error: {str(e)}")
 
         threads = [
@@ -956,7 +956,7 @@ class DatabaseManagerTests(unittest.TestCase):
 
 
 class ConfigurationTests(unittest.TestCase):
-    """tests for ConfigurationManager"""
+    """Tests for ConfigurationManager"""
 
     def setUp(self):
         """Setup test environment"""
@@ -970,7 +970,7 @@ class ConfigurationTests(unittest.TestCase):
         """Test: Required directories exist"""
         required_dirs = ["ui", "core", "data", "logs", "reports"]
 
-        for dir_name in required_dirs:
+        for _ in required_dirs:
             self.assertTrue(True)
 
     def test_config_yaml_loading_failure(self):
@@ -1003,11 +1003,10 @@ class ConfigurationTests(unittest.TestCase):
         result = config_manager.load_config()
 
         self.assertTrue(result)
+        self.assertIsNotNone(config_manager)
 
     def test_directory_creation(self):
         """Test: Directory structure creation"""
-        config_manager = ConfigurationManager()
-
         original_dirs = [
             Path(self.temp_dir) / "logs",
             Path(self.temp_dir) / "reports",
@@ -1044,7 +1043,7 @@ class UIBannerTests(unittest.TestCase):
         mock_banner.display.assert_called_once_with("main", animate=True)
 
     def test_banner_invalid_theme_failure(self):
-        """Test: Invalid banner theme - INTENTIONAL FAILURE"""
+        """Test: Invalid banner theme"""
         mock_banner = Mock()
         mock_banner.theme = "GREEN_PLASMA"
 
@@ -1077,12 +1076,8 @@ class UIMenuTests(unittest.TestCase):
         mock_menu.display.assert_called_once()
 
     def test_menu_prompt_input_validation_failure(self):
-        """Test: Menu input validation - INTENTIONAL FAILURE"""
-        mock_menu = Mock()
-
+        """Test: Menu input validation"""
         user_input = ""
-        expected_input = "1"
-
         self.assertEqual(user_input, "")
 
 
@@ -1111,7 +1106,7 @@ class ScannerFunctionalityTests(unittest.TestCase):
 
         self.assertTrue(mock_scanner.is_initialized)
 
-    async def test_scan_single_username_success(self):
+    def test_scan_single_username_success(self):
         """Test: Scan single username - async test"""
         mock_scanner = AsyncMock()
         mock_result = Mock()
@@ -1121,13 +1116,13 @@ class ScannerFunctionalityTests(unittest.TestCase):
 
         mock_scanner.scan_username.return_value = mock_result
 
-        result = await mock_scanner.scan_username(self.test_username)
+        result = mock_scanner.scan_username.return_value
 
         self.assertEqual(result.username, self.test_username)
         self.assertEqual(result.profiles_found, 2)
 
     def test_scan_invalid_username_format(self):
-        """Test: Scan with invalid username - INTENTIONAL FAILURE"""
+        """Test: Scan with invalid username"""
         invalid_username = ""
 
         is_valid = len(invalid_username) >= 3
@@ -1150,7 +1145,7 @@ class ScannerFunctionalityTests(unittest.TestCase):
         self.assertIn("timestamp", scan_result)
 
     def test_batch_scan_missing_targets(self):
-        """Test: Batch scan with no targets - INTENTIONAL FAILURE"""
+        """Test: Batch scan with no targets"""
         targets = ["testuser1"]
 
         self.assertGreater(len(targets), 0)
@@ -1199,7 +1194,7 @@ class ErrorHandlingTests(unittest.TestCase):
 
         try:
             raise ValueError("Test error")
-        except Exception as e:
+        except ValueError as e:
             mock_error_handler.handle_exception(e)
 
         mock_error_handler.handle_exception.assert_called_once()
@@ -1216,7 +1211,7 @@ class ErrorHandlingTests(unittest.TestCase):
         mock_error_handler.handle_database_error.assert_called_once()
 
     def test_scan_error_context_missing(self):
-        """Test: Scan error with missing context - INTENTIONAL FAILURE"""
+        """Test: Scan error with missing context"""
         mock_error_handler = Mock()
         mock_error_handler.handle_scan_error = Mock()
 
@@ -1255,7 +1250,6 @@ class IntegrationTests(unittest.TestCase):
         """Test: Command center initializes all components"""
         mock_banner = Mock()
         mock_menu = Mock()
-        mock_terminal = Mock()
         mock_db = Mock()
 
         self.assertIsNotNone(mock_banner)
@@ -1264,9 +1258,6 @@ class IntegrationTests(unittest.TestCase):
 
     def test_database_and_scanner_integration(self):
         """Test: Database saves scanner results"""
-        mock_scanner = Mock()
-        mock_scanner.result = {"platform": "Twitter", "found": True}
-
         mock_db = Mock()
         mock_db.save_result = Mock(return_value=True)
 
@@ -1280,8 +1271,7 @@ class IntegrationTests(unittest.TestCase):
         self.assertTrue(success)
 
     def test_full_scan_workflow_failure(self):
-        """Test: Complete scan workflow - INTENTIONAL FAILURE"""
-        username = "testuser"
+        """Test: Complete scan workflow"""
         mock_scanner = Mock()
         mock_db = Mock()
 
@@ -1317,12 +1307,12 @@ class TestFileOperations(unittest.TestCase):
         }
 
         output_file = Path(self.temp_dir) / "test.json"
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(data, f)
 
         self.assertTrue(output_file.exists())
 
-        with open(output_file, "r") as f:
+        with open(output_file, "r", encoding="utf-8") as f:
             loaded = json.load(f)
 
         self.assertEqual(loaded["username"], "testuser")
@@ -1340,8 +1330,7 @@ class TestFileOperations(unittest.TestCase):
         """Test: File integrity verification"""
         test_file = Path(self.temp_dir) / "test.txt"
         test_content = "Test content for integrity check"
-
-        with open(test_file, "w") as f:
+        with open(test_file, "w", encoding="utf-8") as f:
             f.write(test_content)
 
         with open(test_file, "rb") as f:
@@ -1356,7 +1345,7 @@ class TestFileOperations(unittest.TestCase):
 # ============================================================================
 
 
-class TestReporter:
+class _TestReporter:
     """Enterprise test reporting"""
 
     def __init__(self, console: Console):
@@ -1411,7 +1400,6 @@ class TestReporter:
                 test_name = str(test).split()[0]
                 reason = traceback_str.split("\n")[-2] if traceback_str else "Unknown"
                 failures_table.add_row(test_name, reason)
-
             self.console.print(failures_table)
 
         # Show errors if any
@@ -1425,7 +1413,6 @@ class TestReporter:
                 test_name = str(test).split()[0]
                 error = traceback_str.split("\n")[-2] if traceback_str else "Unknown"
                 errors_table.add_row(test_name, error)
-
             self.console.print(errors_table)
 
 
@@ -1440,13 +1427,12 @@ class HandyOsintTestRunner:
     def __init__(self):
         self.display = EnhancedTestDisplay()
         self.console = self.display.console
-        self.reporter = TestReporter(self.console)
+        self.reporter = _TestReporter(self.console)
 
     def run_all_tests(self) -> int:
         """Execute all production tests"""
         self.display.print_main_header()
         self.display.print_suite_header()
-
         start_time = time.time()
 
         # Create test suite
@@ -1505,25 +1491,26 @@ class HandyOsintTestRunner:
             self.console.print(
                 Panel(
                     "[bold green]✓ ALL 48+ PRODUCTION TESTS PASSED[/bold green]\n"
-                    "[dim]Merged Suite: Real Database Operations + Rich Reporting + All Original Tests[/dim]",
+                    "[dim]Merged Suite: Real Database Operations + "
+                    "Rich Reporting + All Original Tests[/dim]",
                     border_style="green",
                     box=HEAVY,
                     padding=(1, 4),
                 )
             )
             return 0
-        else:
-            failed = len(result.failures) + len(result.errors)
-            self.console.print(
-                Panel(
-                    f"[bold red]✗ {failed} TEST(S) FAILED[/bold red]\n"
-                    "[dim]Review detailed report above[/dim]",
-                    border_style="red",
-                    box=HEAVY,
-                    padding=(1, 4),
-                )
+
+        failed = len(result.failures) + len(result.errors)
+        self.console.print(
+            Panel(
+                f"[bold red]✗ {failed} TEST(S) FAILED[/bold red]\n"
+                "[dim]Review detailed report above[/dim]",
+                border_style="red",
+                box=HEAVY,
+                padding=(1, 4),
             )
-            return 1
+        )
+        return 1
 
 
 def main():
@@ -1537,8 +1524,6 @@ def main():
         sys.exit(1)
     except Exception as e:
         print(f"\n❌ Unexpected error: {e}")
-        import traceback
-
         traceback.print_exc()
         sys.exit(1)
 

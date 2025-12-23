@@ -13,9 +13,9 @@
 ✅ Signal handling for graceful shutdown
 ✅ Session tracking and statistics
 2. Scanning Operations
-✅ Single Target Scan - Username lookup across 10 platforms (GitHub, Twitter, Instagram, LinkedIn, Reddit, GitLab, Patreon, TikTok, YouTube, Twitch)
+✅ Single Target Scan - Username lookup across 22 platforms (GitHub, Twitter, Instagram, LinkedIn, Reddit, GitLab, Patreon, TikTok, YouTube, Twitch, etc.)
 ✅ Batch Operations - Process multiple targets simultaneously
-✅ URL checking with curl integration
+✅ Asynchronous HTTP requests with aiohttp
 ✅ Real-time progress bars
 3. Database Management
 ✅ Automatic schema initialization
@@ -228,13 +228,13 @@ The new REST API layer provides programmability and integration capabilities wit
 
 #### Security First
 *   **TLS (HTTPS)**: Enforced for all API endpoints to ensure secure communication.
-*   **Authentication**: Utilizes OAuth 2.0 with OpenID Connect as the standard for user authentication, providing a robust and secure access mechanism.
+*   **Authentication**: Currently uses a placeholder for demonstration purposes. Full implementation of OAuth 2.0 with OpenID Connect is planned for future releases.
 *   **Principle of Least Privilege**: API design ensures users can only access their own scan results, preventing unauthorized data access.
-*   **UUIDs for Identifiers**: Scan result IDs use UUIDs instead of auto-incrementing integers to mitigate data scraping risks.
+*   **Unique Identifiers for Scan Results**: Each scan result is assigned a unique hash-based `scan_id` for external reference, enhancing data integrity and mitigating data scraping risks. The internal primary key remains an auto-incrementing integer.
 
 #### API Design
 *   **Structured Endpoints**: Endpoints are logically organized (e.g., \`GET /api/v1/scan/{username}\`) for clarity and ease of use.
-*   **Rate Limiting**: Implemented per user or API key (via \`X-RateLimit-Limit\` headers) to protect the backend and external services from abuse and ensure fair usage.
+*   **Rate Limiting**: Internal rate limiting is applied per platform. Per-user or API key rate limiting for API endpoints is a planned enhancement.
 *   **Integration Path**: The core \`HandyOsintCommandCenter\` logic (now encapsulated within \`ProductionScanner\`) serves as the business layer behind API endpoints, managed by a modern framework like FastAPI.
 
 #### Professional API Documentation
