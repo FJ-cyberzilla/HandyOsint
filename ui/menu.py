@@ -13,15 +13,15 @@ This module provides:
 """
 
 import asyncio
-from typing import Dict, List, Optional, Callable
 from dataclasses import dataclass
 from enum import Enum
+from typing import Callable, Dict, List, Optional
 
 from rich.console import Console
 from rich.panel import Panel
+from rich.style import Style
 from rich.table import Table
 from rich.text import Text
-from rich.style import Style
 
 
 @dataclass
@@ -71,17 +71,17 @@ class MenuBuilder:
         self.icon = "►"
         self.action: Optional[Callable] = None
 
-    def with_description(self, description: str) -> 'MenuBuilder':
+    def with_description(self, description: str) -> "MenuBuilder":
         """Set item description."""
         self.description = description
         return self
 
-    def with_icon(self, icon: str) -> 'MenuBuilder':
+    def with_icon(self, icon: str) -> "MenuBuilder":
         """Set item icon."""
         self.icon = icon
         return self
 
-    def with_action(self, action: Callable) -> 'MenuBuilder':
+    def with_action(self, action: Callable) -> "MenuBuilder":
         """Set item action."""
         self.action = action
         return self
@@ -93,7 +93,7 @@ class MenuBuilder:
             label=self.label,
             description=self.description,
             icon=self.icon,
-            action=self.action
+            action=self.action,
         )
 
 
@@ -118,11 +118,7 @@ class MenuRenderer:
         menu_grid.add_column(style=self.color_scheme)
 
         for item in items.values():
-            key_text = Text(
-                f"[{item.key}]",
-                style=self.color_scheme,
-                no_wrap=True
-            )
+            key_text = Text(f"[{item.key}]", style=self.color_scheme, no_wrap=True)
             icon_text = Text(f"{item.icon}", style=self.color_scheme)
             label_text = Text(f"{item.label}", style=self.color_scheme)
             desc_text = Text(f"{item.description}", style="dim")
@@ -147,18 +143,19 @@ class MenuRenderer:
             title=title,
             border_style=self.color_scheme,
             title_align="center",
-            padding=(1, 2)
+            padding=(1, 2),
         )
         return panel
 
-    def render_data_table(self, headers: List[str], rows: List[List[str]],
-                         title: str = "") -> Table:
+    def render_data_table(
+        self, headers: List[str], rows: List[List[str]], title: str = ""
+    ) -> Table:
         """Render data table with responsive columns."""
         table = Table(
             title=title,
             border_style=self.color_scheme,
             show_header=True,
-            header_style=self._get_style(self.color_scheme)
+            header_style=self._get_style(self.color_scheme),
         )
 
         for header in headers:
@@ -169,8 +166,7 @@ class MenuRenderer:
 
         return table
 
-    def render_status_message(self, status: MenuStatus,
-                             message: str) -> Text:
+    def render_status_message(self, status: MenuStatus, message: str) -> Text:
         """Render status message with icon."""
         icon, color = status.value
         text = Text()
@@ -202,8 +198,7 @@ class MenuInputHandler:
         except (EOFError, KeyboardInterrupt):
             return "0"
 
-    def prompt_text(self, prompt_msg: str,
-                   allow_empty: bool = False) -> str:
+    def prompt_text(self, prompt_msg: str, allow_empty: bool = False) -> str:
         """Get text input with optional validation."""
         try:
             prompt_style = Style(color=self.color_scheme)
@@ -240,7 +235,7 @@ class Menu:
         self.input_handler = MenuInputHandler(self.console, self.color_scheme)
         self._history: List[str] = []
 
-    def add_item(
+    def add_item(  # pylint: disable=R0913,R0917
         self,
         key: str,
         label: str,
@@ -283,13 +278,14 @@ class Menu:
             title=self.title,
             border_style=self.color_scheme,
             title_align="center",
-            padding=(1, 2)
+            padding=(1, 2),
         )
         self.console.print(panel)
         self.input_handler.set_valid_inputs(self.items.keys())
 
-    def display_table(self, headers: List[str], rows: List[List[str]],
-                     title: str = "") -> None:
+    def display_table(
+        self, headers: List[str], rows: List[List[str]], title: str = ""
+    ) -> None:
         """Display data table."""
         table = self.renderer.render_data_table(headers, rows, title)
         self.console.print(table)
@@ -303,45 +299,32 @@ class Menu:
 
     def display_info(self, message: str) -> None:
         """Display info message."""
-        status_text = self.renderer.render_status_message(
-            MenuStatus.INFO,
-            message
-        )
+        status_text = self.renderer.render_status_message(MenuStatus.INFO, message)
         self.console.print(status_text)
         self._add_to_history(f"Info: {message}")
 
     def display_success(self, message: str) -> None:
         """Display success message."""
-        status_text = self.renderer.render_status_message(
-            MenuStatus.SUCCESS,
-            message
-        )
+        status_text = self.renderer.render_status_message(MenuStatus.SUCCESS, message)
         self.console.print(status_text)
         self._add_to_history(f"Success: {message}")
 
     def display_error(self, message: str) -> None:
         """Display error message."""
-        status_text = self.renderer.render_status_message(
-            MenuStatus.ERROR,
-            message
-        )
+        status_text = self.renderer.render_status_message(MenuStatus.ERROR, message)
         self.console.print(status_text)
         self._add_to_history(f"Error: {message}")
 
     def display_warning(self, message: str) -> None:
         """Display warning message."""
-        status_text = self.renderer.render_status_message(
-            MenuStatus.WARNING,
-            message
-        )
+        status_text = self.renderer.render_status_message(MenuStatus.WARNING, message)
         self.console.print(status_text)
         self._add_to_history(f"Warning: {message}")
 
     def display_processing(self, message: str) -> None:
         """Display processing indicator."""
         status_text = self.renderer.render_status_message(
-            MenuStatus.PROCESSING,
-            message
+            MenuStatus.PROCESSING, message
         )
         self.console.print(status_text)
         self._add_to_history(f"Processing: {message}")
@@ -352,23 +335,18 @@ class Menu:
         self._add_to_history(f"Selection: {selection}")
         return selection
 
-    def prompt_input(self, prompt_msg: str,
-                    allow_empty: bool = False) -> str:
+    def prompt_input(self, prompt_msg: str, allow_empty: bool = False) -> str:
         """Get user text input."""
-        user_input = self.input_handler.prompt_text(
-            prompt_msg,
-            allow_empty
-        )
+        user_input = self.input_handler.prompt_text(prompt_msg, allow_empty)
         self._add_to_history(f"Input: {prompt_msg}")
         return user_input
 
     def prompt_confirm(self, prompt_msg: str = "Continue?") -> bool:
         """Get user confirmation."""
         response = self.input_handler.prompt_text(
-            f"{prompt_msg} (Y/N)",
-            allow_empty=False
+            f"{prompt_msg} (Y/N)", allow_empty=False
         )
-        result = response.upper() in ('Y', 'YES')
+        result = response.upper() in ("Y", "YES")
         self._add_to_history(f"Confirm: {prompt_msg} -> {result}")
         return result
 
@@ -427,40 +405,18 @@ class Menu:
 async def demo_menu() -> None:
     """Demonstrate menu system functionality."""
     menu = Menu(
-        title="OSINT INTELLIGENCE PLATFORM",
-        color_scheme=MenuColorScheme.DARK_ORANGE
+        title="OSINT INTELLIGENCE PLATFORM", color_scheme=MenuColorScheme.DARK_ORANGE
     )
 
+    menu.add_item("1", "Network Scanner", "Scan and analyze network targets", icon="🔍")
     menu.add_item(
-        "1",
-        "Network Scanner",
-        "Scan and analyze network targets",
-        icon="🔍"
+        "2", "Domain Lookup", "Perform comprehensive domain analysis", icon="🌐"
     )
     menu.add_item(
-        "2",
-        "Domain Lookup",
-        "Perform comprehensive domain analysis",
-        icon="🌐"
+        "3", "Data Extraction", "Extract and process intelligence data", icon="📊"
     )
-    menu.add_item(
-        "3",
-        "Data Extraction",
-        "Extract and process intelligence data",
-        icon="📊"
-    )
-    menu.add_item(
-        "4",
-        "Report Generator",
-        "Generate professional reports",
-        icon="📄"
-    )
-    menu.add_item(
-        "0",
-        "Exit",
-        "Close application",
-        icon="⏻"
-    )
+    menu.add_item("4", "Report Generator", "Generate professional reports", icon="📄")
+    menu.add_item("0", "Exit", "Close application", icon="⏻")
 
     menu.clear_screen()
     menu.display()
@@ -474,9 +430,7 @@ async def demo_menu() -> None:
         ["192.168.1.101", "Server", "Inactive"],
     ]
     menu.display_table(
-        ["IP Address", "Device Type", "Status"],
-        sample_data,
-        title="Network Devices"
+        ["IP Address", "Device Type", "Status"], sample_data, title="Network Devices"
     )
 
     menu.display_processing("Performing reconnaissance scan...")

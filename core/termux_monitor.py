@@ -5,8 +5,9 @@ Fallback for psutil restrictions on Android/Termux
 
 import os
 import sys
-import time
-from typing import Dict, Any, Optional
+from typing import Any, Dict
+
+import psutil  # Moved to top
 
 
 class TermuxMonitor:
@@ -16,14 +17,11 @@ class TermuxMonitor:
     def cpu_usage() -> float:
         """Get CPU usage percentage (simplified for Termux)"""
         try:
-            # Try psutil first
-            import psutil
-
             return psutil.cpu_percent(interval=0.1)
-        except:
+        except psutil.Error:  # Catch psutil specific errors
             # Fallback to reading /proc/stat if accessible
             try:
-                with open("/proc/stat", "r") as f:
+                with open("/proc/stat", "r", encoding="utf-8") as f:  # Added encoding
                     lines = f.readlines()
                 for line in lines:
                     if line.startswith("cpu "):
@@ -32,7 +30,7 @@ class TermuxMonitor:
                         total = sum(int(p) for p in parts[1:])
                         idle = int(parts[4])
                         return 100.0 * (1.0 - idle / total) if total > 0 else 0.0
-            except:
+            except (FileNotFoundError, IndexError, ValueError):  # Specific fallbacks
                 pass
             return 50.0  # Default fallback
 
@@ -40,8 +38,6 @@ class TermuxMonitor:
     def memory_usage() -> Dict[str, Any]:
         """Get memory usage information"""
         try:
-            import psutil
-
             mem = psutil.virtual_memory()
             return {
                 "percent": mem.percent,
@@ -49,10 +45,12 @@ class TermuxMonitor:
                 "available": mem.available,
                 "used": mem.used,
             }
-        except:
+        except psutil.Error:  # Catch psutil specific errors
             # Fallback for Termux
             try:
-                with open("/proc/meminfo", "r") as f:
+                with open(
+                    "/proc/meminfo", "r", encoding="utf-8"
+                ) as f:  # Added encoding
                     lines = f.readlines()
                 meminfo = {}
                 for line in lines:
@@ -74,15 +72,13 @@ class TermuxMonitor:
                     "available": available,
                     "used": total - available,
                 }
-            except:
+            except (FileNotFoundError, IndexError, ValueError):  # Specific fallbacks
                 return {"percent": 0.0, "total": 0, "available": 0, "used": 0}
 
     @staticmethod
     def disk_usage(path: str = ".") -> Dict[str, Any]:
         """Get disk usage information"""
         try:
-            import psutil
-
             disk = psutil.disk_usage(path)
             return {
                 "percent": disk.percent,
@@ -90,7 +86,7 @@ class TermuxMonitor:
                 "used": disk.used,
                 "free": disk.free,
             }
-        except:
+        except psutil.Error:  # Catch psutil specific errors
             # Fallback using os.statvfs
             try:
                 stat = os.statvfs(path)
@@ -104,7 +100,7 @@ class TermuxMonitor:
                     percent = 0.0
 
                 return {"percent": percent, "total": total, "used": used, "free": free}
-            except:
+            except (FileNotFoundError, OSError):  # Specific fallbacks
                 return {"percent": 0.0, "total": 0, "used": 0, "free": 0}
 
     @staticmethod

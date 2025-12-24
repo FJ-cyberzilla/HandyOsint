@@ -1,98 +1,26 @@
 name: Pylint Code Quality
 
-permissions:
-  contents: read
-
 on:
   push:
     branches: [main, master, develop]
   pull_request:
     branches: [main, master]
-  workflow_dispatch:
 
 jobs:
   pylint:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.12"]  # Use Python 3.12 for full compatibility
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
-        
+        python-version: "3.12"
+
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        # Install pylint version 3.x and ensure astroid compatibility
-        pip install "pylint>=3.0.0" "astroid>=3.0.0"
-        # Install project requirements, including -dev for Pylint configuration
-        pip install -r config/requirements.txt
         pip install -r config/requirements-dev.txt
-        
+        pip install pylint
+
     - name: Run Pylint
-      id: run-pylint
-      # Do not use continue-on-error here, let pylint's exit code determine job status
-      run: |
-        echo "📊 Running Pylint..."
-        
-        # Pylint automatically finds .pylintrc in the project root or specified config/
-        # Use --rcfile to explicitly point to the config
-        # Use --recursive=yes to scan all Python files found recursively from the current directory
-        # Exclude directories that are not part of the source code (e.g., tests, venv, .github)
-        PYLINT_COMMAND="pylint --rcfile=config/.pylintrc --recursive=yes . \
-          --ignore=tests,venv,.venv,.github,.validation_backup_*,__pycache__"
-        
-        # Execute Pylint and capture output
-        # Set a default value for score in case Pylint output doesn't match expected pattern
-        PYLINT_SCORE="0.00"
-        
-        # Run pylint and capture its output, ignoring stderr for now to avoid noisy output in case of parsing errors
-        # The exit code of pylint will be handled by the shell command, and if non-zero, it will fail the step.
-        pylint_output=$(eval "$PYLINT_COMMAND" 2>&1 || true)
-        
-        echo "$pylint_output"
-        
-        # Extract score reliably
-        score_line=$(echo "$pylint_output" | grep -E "Your code has been rated at")
-        if [ -n "$score_line" ]; then
-          PYLINT_SCORE=$(echo "$score_line" | grep -oE "[0-9]+\.[0.9]+" | head -1)
-        fi
-        
-        echo "Pylint Score: $PYLINT_SCORE"
-        echo "score=$PYLINT_SCORE" >> $GITHUB_OUTPUT
-        
-        # Check against fail-under threshold explicitly
-        FAIL_UNDER=$(grep "fail-under" config/.pylintrc | head -1 | cut -d'=' -f2 | tr -d ' ')
-        if [ -z "$FAIL_UNDER" ]; then
-          FAIL_UNDER="0.0" # Default if not found
-        fi
-        
-        echo "Configured fail-under: $FAIL_UNDER"
-        
-        # Use awk for floating point comparison
-        if (( $(echo "$PYLINT_SCORE < $FAIL_UNDER" | bc -l) )); then
-          echo "❌ Pylint score ($PYLINT_SCORE) is below the configured fail-under threshold ($FAIL_UNDER)."
-          exit 1
-        else
-          echo "✅ Pylint score ($PYLINT_SCORE) meets or exceeds the configured fail-under threshold ($FAIL_UNDER)."
-        fi
-        
-    - name: Create summary report
-      if: always()
-      run: |
-        echo "📋 PYTHON CODE QUALITY REPORT"
-        echo "=============================="
-        echo ""
-        echo "Python Version: ${{ matrix.python-version }}"
-        echo "Pylint Score: ${{ steps.run-pylint.outputs.score || 'N/A' }}/10"
-        echo "Configured Fail-Under: ${{ steps.get-fail-under.outputs.fail_under || 'N/A' }}"
-        echo ""
-        echo "✅ Next steps:"
-        echo "1. Ensure score meets or exceeds the 'fail-under' threshold."
-        echo "2. Fix any reported Pylint issues."
+      run: pylint api core ui

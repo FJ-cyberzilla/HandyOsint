@@ -1,15 +1,15 @@
+# pylint: disable=C0301, C0304, C0303
 """
 Advanced analysis engine for HandyOsint.
 """
 
 import logging
 from collections import defaultdict
-from typing import Tuple, Dict, List, Any
+from typing import Any, Dict, List, Tuple
 
+from config.platforms import PLATFORM_CATEGORIES, PLATFORM_INFO
 from core.cache import CacheManager
-from core.models import ScanAnalysis, RiskLevel, CorrelationData, PlatformResult
-from config.platforms import PLATFORM_INFO, PLATFORM_CATEGORIES
-
+from core.models import CorrelationData, PlatformResult, RiskLevel, ScanAnalysis
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,8 @@ class AdvancedAnalysisEngine:
 
         # Factor 1: Number of public profiles
         public_count = sum(
-            1 for p in analysis.platforms.values()
+            1
+            for p in analysis.platforms.values()
             if PLATFORM_INFO.get(p.platform_id, {}).get("audience") == "public"
             and p.found
         )
@@ -72,7 +73,9 @@ class AdvancedAnalysisEngine:
 
         return round(overall_score, 3), risk_level
 
-    def _calculate_category_coverage(self, platforms: Dict[str, PlatformResult]) -> float:
+    def _calculate_category_coverage(
+        self, platforms: Dict[str, PlatformResult]
+    ) -> float:
         """Calculate coverage across platform categories."""
         found_categories = set()
         for result in platforms.values():
@@ -94,11 +97,14 @@ class AdvancedAnalysisEngine:
                 total_exposure_items += len(exposure)
 
         max_possible_exposure = sum(
-            len(p.get("data_exposure", []))
-            for p in PLATFORM_INFO.values()
+            len(p.get("data_exposure", [])) for p in PLATFORM_INFO.values()
         )
 
-        return total_exposure_items / max_possible_exposure if max_possible_exposure else 0.0
+        return (
+            total_exposure_items / max_possible_exposure
+            if max_possible_exposure
+            else 0.0
+        )
 
     def analyze_correlations(self, analysis: ScanAnalysis) -> CorrelationData:
         """Perform correlation analysis."""
@@ -113,10 +119,14 @@ class AdvancedAnalysisEngine:
         correlation.common_patterns = self._detect_patterns(analysis.platforms)
 
         # Likelihood connections
-        correlation.likely_connections = self._find_likely_connections(analysis.platforms)
+        correlation.likely_connections = self._find_likely_connections(
+            analysis.platforms
+        )
 
         # Behavioral fingerprint
-        correlation.behavioral_fingerprint = self._create_fingerprint(analysis.platforms)
+        correlation.behavioral_fingerprint = self._create_fingerprint(
+            analysis.platforms
+        )
 
         # Anomaly detection
         correlation.anomalies = self._detect_anomalies(analysis.platforms)
@@ -149,7 +159,9 @@ class AdvancedAnalysisEngine:
 
         return patterns
 
-    def _find_likely_connections(self, platforms: Dict[str, PlatformResult]) -> Dict[str, List[str]]:
+    def _find_likely_connections(
+        self, platforms: Dict[str, PlatformResult]
+    ) -> Dict[str, List[str]]:
         """Find likely connections between platforms."""
         connections = defaultdict(list)
         found_ids = {p.platform_id for p in platforms.values() if p.found}
@@ -167,7 +179,9 @@ class AdvancedAnalysisEngine:
 
         return dict(connections)
 
-    def _create_fingerprint(self, platforms: Dict[str, PlatformResult]) -> Dict[str, Any]:
+    def _create_fingerprint(
+        self, platforms: Dict[str, PlatformResult]
+    ) -> Dict[str, Any]:
         """Create behavioral fingerprint."""
         fingerprint = {
             "platform_count": len([p for p in platforms.values() if p.found]),
@@ -216,13 +230,17 @@ class AdvancedAnalysisEngine:
     def _assess_privacy_awareness(self, platforms: Dict[str, PlatformResult]) -> str:
         """Assess privacy awareness."""
         configurable_count = sum(
-            1 for p in platforms.values()
-            if p.found and PLATFORM_INFO.get(p.platform_id, {}).get("audience") == "configurable"
+            1
+            for p in platforms.values()
+            if p.found
+            and PLATFORM_INFO.get(p.platform_id, {}).get("audience") == "configurable"
         )
 
         private_count = sum(
-            1 for p in platforms.values()
-            if p.found and PLATFORM_INFO.get(p.platform_id, {}).get("audience") != "public"
+            1
+            for p in platforms.values()
+            if p.found
+            and PLATFORM_INFO.get(p.platform_id, {}).get("audience") != "public"
         )
 
         total_found = sum(1 for p in platforms.values() if p.found)
@@ -242,7 +260,8 @@ class AdvancedAnalysisEngine:
         """Check monetization presence."""
         monetization_platforms = ["patreon", "youtube", "twitch", "medium"]
         found_monetization = [
-            p for p in platforms.values()
+            p
+            for p in platforms.values()
             if p.found and p.platform_id in monetization_platforms
         ]
 
@@ -260,15 +279,14 @@ class AdvancedAnalysisEngine:
         if response_times:
             avg_time = sum(response_times) / len(response_times)
             slow_platforms = [
-                p.platform_name for p in platforms.values()
+                p.platform_name
+                for p in platforms.values()
                 if p.found and p.response_time > avg_time * 2
             ]
             if slow_platforms:
                 anomalies.append(f"Slow response from: {', '.join(slow_platforms)}")
 
-        mixed_statuses = any(
-            p.status == "blocked" for p in platforms.values()
-        )
+        mixed_statuses = any(p.status == "blocked" for p in platforms.values())
         if mixed_statuses:
             anomalies.append("Profile blocking detected - possible account restriction")
 
@@ -279,8 +297,8 @@ class AdvancedAnalysisEngine:
         score = 0.0
 
         if correlation.common_patterns:
-            score += 0.3 * min(len(correlation.common_patterns) / 3,1.0)
-        
+            score += 0.3 * min(len(correlation.common_patterns) / 3, 1.0)
+
         if correlation.likely_connections:
             score += 0.4 * min(len(correlation.likely_connections) / 5, 1.0)
 

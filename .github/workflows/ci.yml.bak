@@ -1,0 +1,33 @@
+name: HandyOsint CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install Nox
+      run: pip install nox
+
+    - name: Run lint
+      run: nox -s lint
+
+    - name: Run tests
+      run: nox -s tests
+
+    - name: Run typecheck
+      run: nox -s typecheck

@@ -1,22 +1,15 @@
 .PHONY: install setup test lint format typecheck clean run build security db-init db-backup help hooks docs
 
-# Default target
 all: install
 
-# Install dependencies
 install:
 	pip install -r config/requirements.txt
 	pip install -r config/requirements-dev.txt
 
-# Development setup
 setup: install
 	cp -n .env.example .env || true
 	python -m pip install --upgrade pip
 	pre-commit install
-
-# -----------------------------
-# Nox-powered commands
-# -----------------------------
 
 lint:
 	nox -s lint
@@ -36,10 +29,6 @@ security:
 docs:
 	nox -s docs
 
-# -----------------------------
-# Application commands
-# -----------------------------
-
 run:
 	python main.py
 
@@ -56,7 +45,7 @@ build: clean
 	python setup.py sdist bdist_wheel
 
 db-init:
-	python -c "from core.production_scanner import ProductionScanner; s = ProductionScanner(); print('Database initialized')"
+	python -c "from main import DatabaseManager; DatabaseManager(); print('Database initialized')"
 
 db-backup:
 	cp data/social_scan.db backups/social_scan_$(shell date +%Y%m%d_%H%M%S).db

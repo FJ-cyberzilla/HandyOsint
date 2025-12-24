@@ -1,0 +1,126 @@
+"""
+Async job persistence layer for HandyOsint using SQLite.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import aiosqlite
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = _PROJECT_ROOT / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH = DATA_DIR / "jobs.db"
+
+
+@dataclass
+class JobRecord:
+    """In-memory representation of a persisted job."""
+    job_id: str
+    username: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    raw_payload: Optional[str]
+
+
+class JobRepository:
+    """Async repository for job persistence backed by SQLite."""
+
+    def __init__(self) -> None:
+        self._db_path = DB_PATH
+        self._conn: Optional[aiosqlite.Connection] = None
+
+    async def connect(self) -> None:
+        """Open a connection and ensure schema exists."""
+        self._conn = await aiosqlite.connect(self._db_path.as_posix())
+        await self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS jobs (
+                job_id TEXT PRIMARY KEY,
+                username TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                raw_payload TEXT
+            )
+            """
+        )
+        await self._conn.commit()
+
+    async def disconnect(self) -> None:
+        """Close the connection if open."""
+        if self._conn:
+            await self._conn.close()
+            self._conn = None
+
+    async def save_job(
+        self,
+        job_id: str,
+        username: str,
+        status: str,
+        raw_payload: Optional[str],
+    ) -> None:
+        """Persist a new job record."""
+        if not self._conn:
+            raise RuntimeError("JobRepository not connected")
+
+        now = datetime.now(timezone.utc).isoformat()
+        await self._conn.execute(
+            """
+            INSERT OR REPLACE INTO jobs (
+                job_id, username, status, created_at, updated_at, raw_payload
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (job_id, username, status, now, now, raw_payload),
+        )
+        await self._conn.commit()
+
+    async def update_job_status(self, job_id: str, status: str) -> None:
+        """Update the status field of an existing job."""
+        if not self._conn:
+            raise RuntimeError("JobRepository not connected")
+
+        now = datetime.now(timezone.utc).isoformat()
+        await self._conn.execute(
+            """
+            UPDATE jobs
+            SET status = ?, updated_at = ?
+            WHERE job_id = ?
+            """,
+            (status, now, job_id),
+        )
+        await self._conn.commit()
+
+    async def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a job by ID as a plain dict."""
+        if not self._conn:
+            raise RuntimeError("JobRepository not connected")
+
+        cursor = await self._conn.execute(
+            """
+            SELECT job_id, username, status, created_at, updated_at, raw_payload
+            FROM jobs
+            WHERE job_id = ?
+            """,
+            (job_id,),
+        )
+        row = await cursor.fetchone()
+        await cursor.close()
+
+        if row is None:
+            return None
+
+        return {
+            "job_id": row[0],
+            "username": row[1],
+            "status": row[2],
+            "created_at": row[3],
+            "updated_at": row[4],
+            "raw_payload": row[5],
+        }

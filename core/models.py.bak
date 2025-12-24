@@ -2,17 +2,15 @@
 Data models for HandyOsint.
 """
 
-import hashlib
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
-from pydantic import BaseModel
+from typing import Dict, List, Optional, Any
+import hashlib
 
 
 class RiskLevel(Enum):
     """Risk assessment levels."""
-
     LOW = ("🟢 LOW", "green", 1)
     MEDIUM = ("🟡 MEDIUM", "yellow", 2)
     HIGH = ("🔴 HIGH", "red", 3)
@@ -26,7 +24,6 @@ class RiskLevel(Enum):
 
 class ProfileStatus(Enum):
     """Profile discovery status."""
-
     FOUND = "✓ FOUND"
     NOT_FOUND = "✗ NOT FOUND"
     BLOCKED = "⊘ BLOCKED"
@@ -37,7 +34,6 @@ class ProfileStatus(Enum):
 
 class AuditAction(Enum):
     """Audit trail actions."""
-
     SCAN_START = "SCAN_START"
     SCAN_COMPLETE = "SCAN_COMPLETE"
     PROFILE_FOUND = "PROFILE_FOUND"
@@ -47,27 +43,44 @@ class AuditAction(Enum):
     EXPORT_PERFORMED = "EXPORT_PERFORMED"
 
 
-class PlatformResult(BaseModel):
-    """Represents the result of a scan on a single platform."""
+@dataclass
+class PlatformResult:  # pylint: disable=too-many-instance-attributes
+    """Result for a single platform scan."""
 
-    platform: str
-    exists: bool
-    profile_url: Optional[str]
-    confidence: float
-    response_time_ms: int
-    metadata: Dict[str, Any]
-    error: Optional[str]
+    platform_id: str
+    platform_name: str
+    found: bool
+    url: str
+    status: str = "pending"
+    status_code: int = 0
+    response_time: float = 0.0
+    error: Optional[str] = None
+    timestamp: str = ""
+    content_length: int = 0
+    content_preview: str = ""
+    headers: Dict[str, str] = field(default_factory=dict)
+    risk_indicators: List[str] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        """Initialize with defaults."""
+        if not self.timestamp:
+            self.timestamp = datetime.now().isoformat()
 
-class ScanBatchResult(BaseModel):
-    """Represents the aggregated results of a batch scan operation."""
-
-    username: str
-    job_id: str
-    status: str
-    started_at: Optional[str]
-    finished_at: Optional[str]
-    results: List[PlatformResult]
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "platform_id": self.platform_id,
+            "platform_name": self.platform_name,
+            "found": self.found,
+            "url": self.url,
+            "status": self.status,
+            "status_code": self.status_code,
+            "response_time": round(self.response_time, 2),
+            "error": self.error,
+            "timestamp": self.timestamp,
+            "content_length": self.content_length,
+            "content_preview": self.content_preview,
+        }
 
 
 @dataclass

@@ -9,11 +9,10 @@ from typing import Any, Dict, Optional
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
-from core.auth import UserPayload, verify_access_token
-from core.integration import IntegrationCoordinator, ScanPriority
-from core.job_repository import JobRepository
-from core.models import PlatformResult, ScanBatchResult
-from core.production_scanner import ProductionScanner
+from core.production_scanner import ProductionScanner  # pylint: disable=import-error
+from core.integration import IntegrationCoordinator, ScanPriority  # pylint: disable=import-error
+from core.job_repository import JobRepository  # pylint: disable=import-error
+from core.auth import UserPayload, verify_access_token  # pylint: disable=import-error
 
 # pylint: disable=protected-access
 
@@ -38,7 +37,6 @@ app = FastAPI(
 @dataclass
 class AppState:
     """Container for application-scoped state objects."""
-
     scanner: Optional[ProductionScanner] = None
     coordinator: Optional[IntegrationCoordinator] = None
     jobs: Optional[JobRepository] = None
@@ -69,7 +67,7 @@ async def startup_event() -> None:
     """Initialize scanner, coordinator, and job repository on application startup."""
     logger.info("Initializing ProductionScanner...")
     scanner = ProductionScanner(max_concurrent=10)
-    await scanner._ensure_session()  # pylint: disable=E1101
+    await scanner._ensure_session()
     state.scanner = scanner
     logger.info("ProductionScanner initialized.")
 
@@ -108,7 +106,9 @@ async def health_check() -> Dict[str, str]:
 async def read_root() -> Dict[str, str]:
     """Root endpoint providing a basic welcome message."""
     return {
-        "message": ("Welcome to HandyOsint API - Visit /docs for API documentation.")
+        "message": (
+            "Welcome to HandyOsint API - Visit /docs for API documentation."
+        )
     }
 
 
@@ -170,7 +170,10 @@ async def scan_username_api(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=("An error occurred while submitting the scan job: " f"{str(exc)}"),
+            detail=(
+                "An error occurred while submitting the scan job: "
+                f"{str(exc)}"
+            ),
         ) from exc
 
 
@@ -240,43 +243,3 @@ async def get_job_status_api(
         status=str(job_status.get("status", "unknown")),
     )
     return job_status
-
-
-@app.get(
-    "/api/v1/jobs/{job_id}/results",
-    response_model=ScanBatchResult,
-    tags=["scans"],
-)
-async def get_job_results_api(
-    job_id: str,
-    current_user: UserPayload = Depends(get_current_user),
-) -> ScanBatchResult:
-    """
-    Retrieve all platform results for a completed job in structured JSON form.
-    """
-    del current_user
-
-    if not state.jobs:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Job repository not initialized.",
-        )
-
-    job = await state.jobs.get_job(job_id)
-    if not job:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Job '{job_id}' not found.",
-        )
-
-    results_raw = await state.jobs.get_results_for_job(job_id)
-    results = [PlatformResult(**record) for record in results_raw]
-
-    return ScanBatchResult(
-        username=job["username"],
-        job_id=job_id,
-        status=job["status"],
-        started_at=job["created_at"],
-        finished_at=job["updated_at"],
-        results=results,
-    )

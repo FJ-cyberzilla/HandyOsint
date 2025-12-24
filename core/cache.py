@@ -1,3 +1,4 @@
+# pylint: disable=C0304, C0305
 """
 CacheManager - In-memory caching with TTL.
 """
@@ -5,7 +6,7 @@ CacheManager - In-memory caching with TTL.
 import logging
 import threading
 import time
-from typing import Dict, Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +49,7 @@ class CacheManager:
         with self._lock:
             current_time = time.time()
             expired = [
-                k for k, (_, ts) in self._cache.items()
-                if current_time - ts > self.ttl
+                k for k, (_, ts) in self._cache.items() if current_time - ts > self.ttl
             ]
             for k in expired:
                 del self._cache[k]

@@ -2,11 +2,13 @@
 Integrated README.md viewer for command center
 """
 
-import os
+import logging
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 
-class IntegratedDocumentation:
+
+class IntegratedDocumentation:  # pylint: disable=R0903
     """Interactive documentation from README.md"""
 
     def __init__(self, readme_path="README.md"):
@@ -16,6 +18,9 @@ class IntegratedDocumentation:
     def _parse_readme(self) -> dict:
         """Parse README.md into interactive sections"""
         if not self.readme_path.exists():
+            logger.warning(
+                "README.md not found at %s. Using default sections.", self.readme_path
+            )
             return self._get_default_sections()
 
         try:
@@ -31,7 +36,8 @@ class IntegratedDocumentation:
                 "license": self._extract_section(content, "License", "## "),
             }
             return sections
-        except Exception:
+        except (IOError, OSError) as e:
+            logger.error("Error parsing README.md: %s", e, exc_info=True)
             return self._get_default_sections()
 
     def _extract_section(self, content, section_name, delimiter):
@@ -45,12 +51,10 @@ class IntegratedDocumentation:
             if line.startswith(f"{delimiter}{section_name}"):
                 in_section = True
                 continue
-            elif in_section and line.startswith(delimiter):
+            if in_section and line.startswith(delimiter):
                 break
-            elif in_section:
+            if in_section:
                 section_lines.append(line)
-
-        return "\n".join(section_lines) if section_lines else "Section not found"
 
     def _get_default_sections(self):
         """Default documentation if README not found"""

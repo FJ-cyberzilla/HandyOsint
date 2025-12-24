@@ -1,0 +1,23 @@
+site_name: HandyOsint
+site_description: HandyOsint OSINT and reconnaissance toolkit
+site_author: HandyOsint
+
+theme:
+  name: material
+
+nav:
+  - Home: docs/README.md
+  - Architecture: docs/HandyOsint_architechture_analysis.md
+  - Index: docs/INDEX.md
+  - Changelog: docs/CHANGELOG.md
+  - Security: docs/SECURITY.md
+  - Contributing: docs/CONTRIBUTING.md
+  - License: docs/LICENSE
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - codehilite
+  - tables
+  - footnotes

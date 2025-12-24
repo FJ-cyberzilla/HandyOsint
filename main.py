@@ -14,12 +14,9 @@ This module provides:
 import asyncio
 import json
 import logging
-import random
 import signal
 import sqlite3
 import sys
-import threading
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -41,11 +38,14 @@ sys.path.insert(0, str(BASE_DIR / "config"))
 # ========================================================================
 
 try:
-    from config.platforms import PLATFORM_INFO
     from core.analysis import AdvancedAnalysisEngine
     from core.audit import AuditLogger
+    from core.integration import ExportFormat, IntegrationCoordinator, ScanPriority
     from core.models import AuditAction, AuditLogEntry, PlatformResult, ScanAnalysis
-    from core.integration import IntegrationCoordinator, ScanPriority, ExportFormat
+    from core.production_scanner import (  # Split into two lines
+        ProductionScanner,
+        UsernameSearchResult,
+    )
     from ui.banner import Banner, BannerColorScheme
     from ui.menu import Menu, MenuColorScheme
     from ui.terminal import Terminal, TerminalColorScheme
@@ -74,12 +74,10 @@ logging.basicConfig(
 logger = logging.getLogger("HandyOsint")
 
 
-
-
-
 # ========================================================================
 # DATABASE MANAGER
 # ========================================================================
+
 
 class DatabaseManager:
     """SQLite database operations with async support."""
@@ -148,14 +146,21 @@ class DatabaseManager:
             logger.error("Database initialization failed: %s", exc)
             raise
 
-    async def _execute_db_operation(self, func: Callable,
-                                   *args: Any, **kwargs: Any) -> Any:
+    async def _execute_db_operation(
+        self, func: Callable, *args: Any, **kwargs: Any
+    ) -> Any:
         """Execute blocking DB operation in thread pool."""
         return await asyncio.to_thread(func, *args, **kwargs)
 
-    async def save_result(self, target: str, platform: str, status: str,
-                          url: str = "", scan_type: str = "",
-                          details: Optional[Dict] = None) -> bool:
+    async def save_result(
+        self,
+        target: str,
+        platform: str,
+        status: str,  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        url: str = "",
+        scan_type: str = "",
+        details: Optional[Dict] = None,
+    ) -> bool:
         """Save scan result asynchronously."""
 
         def _save() -> bool:
@@ -210,15 +215,17 @@ class DatabaseManager:
 
             results = []
             for row in cursor.fetchall():
-                results.append({
-                    "id": row[0],
-                    "timestamp": row[1],
-                    "target": row[2],
-                    "platform": row[3],
-                    "status": row[4],
-                    "url": row[5],
-                    "scan_type": row[6],
-                })
+                results.append(
+                    {
+                        "id": row[0],
+                        "timestamp": row[1],
+                        "target": row[2],
+                        "platform": row[3],
+                        "status": row[4],
+                        "url": row[5],
+                        "scan_type": row[6],
+                    }
+                )
 
             conn.close()
             return results
@@ -248,15 +255,17 @@ class DatabaseManager:
 
             results = []
             for row in cursor.fetchall():
-                results.append({
-                    "id": row[0],
-                    "timestamp": row[1],
-                    "target": row[2],
-                    "platform": row[3],
-                    "status": row[4],
-                    "url": row[5],
-                    "scan_type": row[6],
-                })
+                results.append(
+                    {
+                        "id": row[0],
+                        "timestamp": row[1],
+                        "target": row[2],
+                        "platform": row[3],
+                        "status": row[4],
+                        "url": row[5],
+                        "scan_type": row[6],
+                    }
+                )
 
             conn.close()
             return results
@@ -307,10 +316,7 @@ class DatabaseManager:
             logger.error("Statistics retrieval failed: %s", exc)
             return {}
 
-    async def get_correlated_target_profiles(
-        self,
-        target: str
-    ) -> Dict[str, Any]:
+    async def get_correlated_target_profiles(self, target: str) -> Dict[str, Any]:
         """Retrieve and correlate all scan results for target across platforms."""
 
         def _get_profiles() -> Dict[str, Any]:
@@ -333,7 +339,7 @@ class DatabaseManager:
                 "target": target,
                 "profiles_by_platform": {},
                 "status_counts": {},
-                "history_summary": []
+                "history_summary": [],
             }
 
             for row in raw_results:
@@ -343,14 +349,17 @@ class DatabaseManager:
                 if platform not in correlated_data["profiles_by_platform"]:
                     correlated_data["profiles_by_platform"][platform] = []
 
-                correlated_data["profiles_by_platform"][platform].append({
-                    "status": status,
-                    "url": row["url"],
-                    "timestamp": row["timestamp"],
-                    "created_at": row["created_at"],
-                    "details": (json.loads(row["details"])
-                               if row["details"] else None)
-                })
+                correlated_data["profiles_by_platform"][platform].append(
+                    {
+                        "status": status,
+                        "url": row["url"],
+                        "timestamp": row["timestamp"],
+                        "created_at": row["created_at"],
+                        "details": (
+                            json.loads(row["details"]) if row["details"] else None
+                        ),
+                    }
+                )
 
                 status_key = status.lower()
                 correlated_data["status_counts"][status_key] = (
@@ -372,12 +381,11 @@ class DatabaseManager:
                 "profiles_by_platform": {},
                 "status_counts": {},
                 "history_summary": [],
-                "error": str(exc)
+                "error": str(exc),
             }
 
     async def get_overall_correlation_summary(
-        self,
-        limit_targets: int = 10
+        self, limit_targets: int = 10
     ) -> Dict[str, Any]:
         """Provide overall correlation summary across all scanned targets."""
 
@@ -392,7 +400,7 @@ class DatabaseManager:
                 "top_targets_by_profiles_found": [],
                 "platforms_activity": {},
                 "status_distribution": {},
-                "recent_activity_overview": []
+                "recent_activity_overview": [],
             }
 
             cursor.execute("SELECT COUNT(*) FROM scan_results")
@@ -410,11 +418,11 @@ class DatabaseManager:
                 ORDER BY profiles_found_count DESC, target ASC
                 LIMIT ?
                 """,
-                (limit_targets,)
+                (limit_targets,),
             )
-            summary_data["top_targets_by_profiles_found"] = (
-                [dict(row) for row in cursor.fetchall()]
-            )
+            summary_data["top_targets_by_profiles_found"] = [
+                dict(row) for row in cursor.fetchall()
+            ]
 
             cursor.execute(
                 """
@@ -438,13 +446,12 @@ class DatabaseManager:
                         "not_found": 0,
                         "blocked": 0,
                         "error": 0,
-                        "rate_limited": 0
+                        "rate_limited": 0,
                     }
 
                 summary_data["platforms_activity"][platform]["total"] += count
                 summary_data["platforms_activity"][platform][status] = (
-                    summary_data["platforms_activity"][platform].get(status, 0)
-                    + count
+                    summary_data["platforms_activity"][platform].get(status, 0) + count
                 )
 
             cursor.execute(
@@ -455,9 +462,9 @@ class DatabaseManager:
                 ORDER BY count DESC
                 """
             )
-            summary_data["status_distribution"] = (
-                {row["status"]: row["count"] for row in cursor.fetchall()}
-            )
+            summary_data["status_distribution"] = {
+                row["status"]: row["count"] for row in cursor.fetchall()
+            }
 
             cursor.execute(
                 """
@@ -467,9 +474,9 @@ class DatabaseManager:
                 LIMIT 5
                 """
             )
-            summary_data["recent_activity_overview"] = (
-                [dict(row) for row in cursor.fetchall()]
-            )
+            summary_data["recent_activity_overview"] = [
+                dict(row) for row in cursor.fetchall()
+            ]
 
             conn.close()
             return summary_data
@@ -485,33 +492,8 @@ class DatabaseManager:
 # COMMAND CENTER
 # ========================================================================
 
-def _perform_scan(platform_id: str, platform_info: Dict[str, Any], username: str, results: Dict[str, PlatformResult], results_lock: threading.Lock):
-    """Simulates a scan for a single platform."""
-    start_time = time.time()
-    time.sleep(random.uniform(0.2, 1.0))  # Simulate network latency
-    found = random.choice([True, False, False])  # Skew towards not found
-    response_time = time.time() - start_time
-    
-    if found:
-        status = "FOUND"
-        url = platform_info["url_template"].format(username=username)
-    else:
-        status = "NOT FOUND"
-        url = ""
 
-    with results_lock:
-        results[platform_id] = PlatformResult(
-            platform_id=platform_id,
-            platform_name=platform_info["name"],
-            found=found,
-            url=url,
-            status=status,
-            response_time=response_time,
-            status_code=200 if found else 404,
-        )
-
-
-class CommandCenter:
+class CommandCenter:  # pylint: disable=too-many-instance-attributes,no-member
     """Enterprise command center for OSINT operations."""
 
     def __init__(self) -> None:
@@ -523,83 +505,124 @@ class CommandCenter:
         self.audit_logger = AuditLogger(db_path=str(BASE_DIR / "data" / "audit.db"))
         self.analysis_engine = AdvancedAnalysisEngine()
         self.coordinator = IntegrationCoordinator()
+        self.scanner = ProductionScanner()  # Initialize the actual scanner
         self.running = True
+        self.worker_task: Optional[asyncio.Task] = None  # To hold the worker task
 
         signal.signal(signal.SIGINT, self._handle_signal)
         signal.signal(signal.SIGTERM, self._handle_signal)
 
         self._setup_menu()
 
-    def _setup_menu(self) -> None:
-        """Configure main menu items."""
-        self.menu.add_item(
-            "1",
-            "Single Target Scan",
-            "Scan a single username across platforms",
-            icon="🔍",
-            action=self.handle_single_scan
-        )
-        self.menu.add_item(
-            "2",
-            "Batch Scan",
-            "Scan multiple targets in sequence",
-            icon="📦",
-            action=self.handle_batch_scan
-        )
-        self.menu.add_item(
-            "3",
-            "Search History",
-            "Query previous scan results",
-            icon="📚",
-            action=self.handle_search_history
-        )
-        self.menu.add_item(
-            "4",
-            "View Statistics",
-            "Display scan statistics and insights",
-            icon="📊",
-            action=self.handle_statistics
-        )
-        self.menu.add_item(
-            "5",
-            "Target Correlation",
-            "View correlated profiles for a target",
-            icon="🔗",
-            action=self.handle_target_correlation
-        )
-        self.menu.add_item(
-            "6",
-            "Intelligence Summary",
-            "View overall intelligence summary",
-            icon="📈",
-            action=self.handle_intelligence_summary
-        )
-        self.menu.add_item(
-            "7",
-            "View Batch Job Status",
-            "View status of all active batch jobs",
-            icon="📋",
-            action=self.handle_view_batch_jobs
-        )
-        self.menu.add_item(
-            "8",
-            "View Metrics",
-            "Display aggregated scan metrics",
-            icon="📊",
-            action=self.handle_view_metrics
-        )
-        self.menu.add_item(
-            "0",
-            "Exit",
-            "Gracefully shutdown the system",
-            icon="⏻",
-            action=self.handle_exit
-        )
+    async def _scan_worker_task(self) -> None:
+        """Asynchronous worker to process scan tasks from the queue."""
+        logger.info("Scan worker task started.")
+        async with self.scanner:  # Use async with for proper context management
+            while self.running:
+                try:
+                    task = await self.coordinator.orchestrator.task_queue.dequeue()
+                    if task:
+                        logger.info(
+                            "Worker dequeued task: %s for user %s",
+                            task.task_id,
+                            task.username,
+                        )
+                        task.metadata.status = "in_progress"
+                        task.metadata.started_at = datetime.now().isoformat()
 
-    def _handle_signal(self, signum: int, frame: Optional[Any] = None) -> None:  # pylint: disable=unused-argument
+                        scan_result: UsernameSearchResult = (
+                            await self.scanner.scan_username(task.username)
+                        )
+
+                        # --- Data Transformation & Analysis ---
+                        scan_analysis = ScanAnalysis(
+                            username=scan_result.username,
+                            scan_id=task.task_id,  # Use task_id as scan_id for now
+                            timestamp=scan_result.timestamp,
+                            total_platforms=scan_result.total_platforms,
+                            profiles_found=scan_result.profiles_found,
+                            scan_duration=scan_result.scan_duration,
+                            errors=scan_result.errors,
+                            platforms={
+                                p_id: PlatformResult(
+                                    platform_id=p_id,
+                                    platform_name=p_detail.platform,
+                                    found=p_detail.found,
+                                    url=p_detail.url,
+                                    status=p_detail.status,
+                                    response_time=p_detail.response_time,
+                                    status_code=p_detail.status_code,
+                                )
+                                for p_id, p_detail in scan_result.platforms.items()
+                            },
+                        )
+
+                        # Perform analysis
+                        risk_score, risk_level = (
+                            self.analysis_engine.calculate_risk_score(scan_analysis)
+                        )
+                        scan_analysis.overall_risk_score = risk_score
+                        scan_analysis.risk_level = risk_level.label
+
+                        correlation_data = self.analysis_engine.analyze_correlations(
+                            scan_analysis
+                        )
+                        scan_analysis.correlation_data = correlation_data
+                        # --- End Data Transformation & Analysis ---
+
+                        # Save individual platform results to the database
+                        for platform_id, detail in scan_result.platforms.items():
+                            await self.db.save_result(
+                                target=scan_result.username,
+                                platform=platform_id,
+                                status=detail.status,
+                                url=detail.url,
+                                scan_type="batch",
+                                details=detail.to_dict(),
+                            )
+
+                        # Update Orchestrator with result (using the analyzed scan_analysis)
+                        self.coordinator.update_task_result(
+                            task.task_id,
+                            scan_analysis.to_dict(),  # Pass the full analyzed data # pylint: disable=no-member
+                            status="completed" if not scan_result.errors else "failed",
+                        )
+                        logger.info("Worker completed task: %s", task.task_id)
+                    else:
+                        await asyncio.sleep(0.5)  # Wait if queue is empty
+                except asyncio.CancelledError:
+                    logger.info("Scan worker task cancelled.")
+                    break
+                except Exception as exc:  # pylint: disable=broad-except
+                    logger.error("Error in scan worker task: %s", exc, exc_info=True)
+                    # Attempt to mark task as failed if an exception occurs
+                    if task:
+                        self.coordinator.update_task_result(
+                            task.task_id, {"error": str(exc)}, status="failed"
+                        )
+                    await asyncio.sleep(1)  # Prevent busy-loop on persistent errors
+        logger.info("Scan worker task stopped.")
+
+    async def _start_worker(self) -> None:
+        """Start the background worker task."""
+        if self.worker_task is None or self.worker_task.done():
+            self.worker_task = asyncio.create_task(self._scan_worker_task())
+            logger.info("Background scan worker task initiated.")
+
+    async def _stop_worker(self) -> None:
+        """Stop the background worker task."""
+        if self.worker_task and not self.worker_task.done():
+            self.worker_task.cancel()
+            await self.worker_task
+            logger.info("Background scan worker task stopped.")
+
+    def _handle_signal(
+        self, signum: int, frame: Optional[Any] = None
+    ) -> None:  # pylint: disable=unused-argument
         """Handle interrupt signals. Frame argument required by signal handler."""
         logger.info("Received signal: %s", signum)
         self.running = False
+        # The worker will be gracefully stopped in run() and main()
 
     def _display_scan_results(self, scan_analysis: ScanAnalysis):
         """Displays the results of a scan analysis."""
@@ -617,22 +640,25 @@ class CommandCenter:
             f"[bold]Risk Level:[/bold] {risk_level}\n"
             f"[bold]Scan Duration:[/bold] {scan_analysis.scan_duration:.2f}s",
             title="Scan Summary",
-            border_style="cyan"
+            border_style="cyan",
         )
         self.terminal.console.print(summary_panel)
 
         # Results Table
         table_title = "Platform Scan Results"
         results_table = Table(  # pylint: disable=line-too-long
-            title=table_title,
-            border_style="magenta"
+            title=table_title, border_style="magenta"
         )
         results_table.add_column("Platform", style="cyan", no_wrap=True)
         results_table.add_column("Status", style="green")
         results_table.add_column("URL", style="yellow")
 
-        for result in sorted(scan_analysis.platforms.values(), key=lambda r: r.platform_name):
-            status = "[green]✓ Found[/green]" if result.found else "[red]✗ Not Found[/red]"
+        for result in sorted(
+            scan_analysis.platforms.values(), key=lambda r: r.platform_name
+        ):
+            status = (
+                "[green]✓ Found[/green]" if result.found else "[red]✗ Not Found[/red]"
+            )
             results_table.add_row(result.platform_name, status, result.url)
 
         self.terminal.console.print(results_table)
@@ -655,14 +681,12 @@ class CommandCenter:
 
             if corr_content:
                 correlation_panel = Panel(
-                    corr_content,
-                    title="Correlation Analysis",
-                    border_style="yellow"
+                    corr_content, title="Correlation Analysis", border_style="yellow"
                 )
                 self.terminal.console.print(correlation_panel)
 
     async def handle_single_scan(self) -> None:
-        """Handle single target scan with advanced analysis."""
+        """Handle single target scan by submitting it as a high-priority job."""
         self.terminal.clear()
         self.banner.display("scan", animate=False)
         self.menu.display_info("SINGLE TARGET SCAN - Username Intelligence")
@@ -673,76 +697,36 @@ class CommandCenter:
             self.menu.display_warning("Operation cancelled")
             return
 
-        scan_start_time = datetime.now()
-        scan_analysis = ScanAnalysis(
-            username=username,
-            scan_id="",
-            timestamp=scan_start_time.isoformat(),
+        self.menu.display_processing(
+            f"Submitting single target scan for: {username}..."
         )
 
-        self.audit_logger.log(AuditLogEntry(
-            timestamp=scan_analysis.timestamp,
-            action=AuditAction.SCAN_START.value,
-            username=username,
-            scan_id=scan_analysis.scan_id,
-            details={"type": "single_target"}
-        ))
+        # Create a batch job with a single username, high priority
+        job = self.coordinator.execute_batch_scan(
+            usernames=[username],
+            priority=ScanPriority.CRITICAL,  # Single scans are critical/high priority
+            export_formats=[],  # No immediate export for single scans, handled by worker
+        )
 
-        self.menu.display_processing(f"Scanning target: {username}...")
-
-        scan_results: Dict[str, PlatformResult] = {}
-        results_lock = threading.Lock()
-        threads = []
-        for platform_id, platform_info in PLATFORM_INFO.items():
-            thread = threading.Thread(
-                target=_perform_scan,
-                args=(platform_id, platform_info, username, scan_results, results_lock)
+        self.audit_logger.log(
+            AuditLogEntry(
+                timestamp=datetime.now().isoformat(),
+                action=AuditAction.SCAN_COMPLETE.value,  # Log as COMPLETE after job submission
+                username=username,
+                scan_id=job.job_id,
+                details={
+                    "duration": "N/A (background)",
+                    "profiles_found": "N/A (background)",
+                    "status": "Job submitted",
+                    "type": "single_target",
+                },
             )
-            threads.append(thread)
-            thread.start()
+        )
 
-        for thread in threads:
-            thread.join()
-
-        scan_analysis.platforms = scan_results
-        scan_analysis.total_platforms = len(scan_results)
-        scan_analysis.profiles_found = sum(1 for r in scan_results.values() if r.found)
-        scan_analysis.scan_duration = (datetime.now() - scan_start_time).total_seconds()
-
-        # Save individual platform results to the database
-        for platform_id, result in scan_results.items():
-            await self.db.save_result(
-                target=username,
-                platform=platform_id,
-                status=result.status,
-                url=result.url,
-                scan_type="single",
-                details={"response_time": result.response_time,
-                         "status_code": result.status_code}
-            )
-
-        # Perform analysis
-        risk_score, risk_level = self.analysis_engine.calculate_risk_score(scan_analysis)
-        scan_analysis.overall_risk_score = risk_score
-        scan_analysis.risk_level = risk_level.label
-
-        correlation_data = self.analysis_engine.analyze_correlations(scan_analysis)
-        scan_analysis.correlation_data = correlation_data
-
-        # Log completion
-        self.audit_logger.log(AuditLogEntry(
-            timestamp=datetime.now().isoformat(),
-            action=AuditAction.SCAN_COMPLETE.value,
-            username=username,
-            scan_id=scan_analysis.scan_id,
-            details={
-                "duration": scan_analysis.scan_duration,
-                "profiles_found": scan_analysis.profiles_found
-            }
-        ))
-
-        self._display_scan_results(scan_analysis)
-
+        self.menu.display_success(
+            f"Single target scan job '{job.job_id}' created for '{username}'. "
+            "Monitoring its status via 'View Batch Job Status'."
+        )
         self.menu.prompt_selection("PRESS ENTER TO CONTINUE")
 
     async def handle_batch_scan(self) -> None:
@@ -751,9 +735,7 @@ class CommandCenter:
         self.banner.display("analysis", animate=False)
         self.menu.display_info("BATCH SCAN MODE")
 
-        targets_input = self.menu.prompt_input(
-            "ENTER TARGETS (comma-separated)"
-        )
+        targets_input = self.menu.prompt_input("ENTER TARGETS (comma-separated)")
 
         if not targets_input:
             self.menu.display_warning("Operation cancelled")
@@ -779,7 +761,7 @@ class CommandCenter:
             if not format_input:
                 selected_formats = [ExportFormat.JSON, ExportFormat.HTML]
                 break
-            
+
             try:
                 choices = [c.strip() for c in format_input.split(",")]
                 temp_formats = []
@@ -791,18 +773,23 @@ class CommandCenter:
                 if temp_formats:
                     selected_formats = temp_formats
                     break
-                else:
-                    self.menu.display_warning("No valid export formats selected. Please try again.")
-            except Exception: # pylint: disable=broad-except
-                self.menu.display_warning("Invalid input. Please use comma-separated numbers.")
 
+                self.menu.display_warning(
+                    "No valid export formats selected. Please try again."
+                )
+            except Exception:  # pylint: disable=broad-except
+                self.menu.display_warning(
+                    "Invalid input. Please use comma-separated numbers."
+                )
 
-        self.menu.display_processing(f"Initiating batch scan for {len(usernames)} targets...")
+        self.menu.display_processing(
+            f"Initiating batch scan for {len(usernames)} targets..."
+        )
 
         job = self.coordinator.execute_batch_scan(
             usernames=usernames,
-            priority=ScanPriority.NORMAL, # Default to NORMAL priority for now
-            export_formats=selected_formats
+            priority=ScanPriority.NORMAL,  # Default to NORMAL priority for now
+            export_formats=selected_formats,
         )
         # The orchestration is handled internally by IntegrationCoordinator,
         # so we just need to confirm the job creation.
@@ -830,8 +817,7 @@ class CommandCenter:
         if results:
             headers = ["ID", "Target", "Platform", "Status", "URL"]
             rows = [
-                [str(r["id"]), r["target"], r["platform"],
-                 r["status"], r["url"][:40]]
+                [str(r["id"]), r["target"], r["platform"], r["status"], r["url"][:40]]
                 for r in results[:10]
             ]
             self.menu.display_table(headers, rows, title="Search Results")
@@ -960,6 +946,8 @@ class CommandCenter:
         self.terminal.boot_sequence()
         self.banner.display("main", animate=True)
 
+        await self._start_worker()  # Start the background worker task
+
         while self.running:
             try:
                 self.menu.display()
@@ -980,10 +968,13 @@ class CommandCenter:
                 logger.error("Command execution error: %s", exc)
                 self.menu.display_error(f"Error: {str(exc)}")
 
+        await self._stop_worker()  # Stop the background worker task
+
 
 # ========================================================================
 # MAIN ENTRY POINT
 # ========================================================================
+
 
 async def main() -> None:
     """Main application entry point."""

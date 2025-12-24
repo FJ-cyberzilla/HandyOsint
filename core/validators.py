@@ -11,12 +11,11 @@ Comprehensive validation framework for:
 - API request validation
 """
 
-import re
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Callable
+import re
 from dataclasses import dataclass
 from enum import Enum
-from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +23,7 @@ logger = logging.getLogger(__name__)
 # ========================================================================
 # VALIDATION ENUMS
 # ========================================================================
+
 
 class ValidationLevel(Enum):
     """Validation strictness levels."""
@@ -52,6 +52,7 @@ class ValidationType(Enum):
 # ========================================================================
 # VALIDATION RESULT
 # ========================================================================
+
 
 @dataclass
 class ValidationResult:
@@ -82,21 +83,29 @@ class ValidationResult:
 # USERNAME VALIDATOR
 # ========================================================================
 
-class UsernameValidator:
+
+class UsernameValidator:  # pylint: disable=R0903
     """Validate username inputs."""
 
     MIN_LENGTH = 2
     MAX_LENGTH = 64
     ALLOWED_CHARS = re.compile(r"^[a-zA-Z0-9_.-]+$")
     RESERVED_NAMES = {
-        "admin", "root", "system", "test", "demo", "default",
-        "null", "none", "undefined", "admin123"
+        "admin",
+        "root",
+        "system",
+        "test",
+        "demo",
+        "default",
+        "null",
+        "none",
+        "undefined",
+        "admin123",
     }
 
     @staticmethod
     def validate(
-        username: str,
-        level: ValidationLevel = ValidationLevel.MODERATE
+        username: str, level: ValidationLevel = ValidationLevel.MODERATE
     ) -> ValidationResult:
         """Validate username."""
         errors: List[str] = []
@@ -105,8 +114,7 @@ class UsernameValidator:
         if not username:
             errors.append("Username cannot be empty")
             return ValidationResult(
-                False, username, errors, warnings,
-                ValidationType.USERNAME
+                False, username, errors, warnings, ValidationType.USERNAME
             )
 
         username = username.strip()
@@ -136,11 +144,7 @@ class UsernameValidator:
                 warnings.append("Username ends with special character")
 
         return ValidationResult(
-            len(errors) == 0,
-            username,
-            errors,
-            warnings,
-            ValidationType.USERNAME
+            len(errors) == 0, username, errors, warnings, ValidationType.USERNAME
         )
 
 
@@ -148,7 +152,8 @@ class UsernameValidator:
 # URL VALIDATOR
 # ========================================================================
 
-class URLValidator:
+
+class URLValidator:  # pylint: disable=R0903
     """Validate URLs and network endpoints."""
 
     URL_PATTERN = re.compile(
@@ -158,7 +163,7 @@ class URLValidator:
         r"(?::\d+)?"
         r"(?:/[^\s]*)?"
         r"$",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
 
     MAX_URL_LENGTH = 2048
@@ -171,9 +176,7 @@ class URLValidator:
 
         if not url:
             errors.append("URL cannot be empty")
-            return ValidationResult(
-                False, url, errors, warnings, ValidationType.URL
-            )
+            return ValidationResult(False, url, errors, warnings, ValidationType.URL)
 
         url = url.strip()
 
@@ -187,11 +190,7 @@ class URLValidator:
             warnings.append("URL uses unencrypted HTTP protocol")
 
         return ValidationResult(
-            len(errors) == 0,
-            url,
-            errors,
-            warnings,
-            ValidationType.URL
+            len(errors) == 0, url, errors, warnings, ValidationType.URL
         )
 
 
@@ -199,12 +198,11 @@ class URLValidator:
 # EMAIL VALIDATOR
 # ========================================================================
 
-class EmailValidator:
+
+class EmailValidator:  # pylint: disable=R0903
     """Validate email addresses."""
 
-    EMAIL_PATTERN = re.compile(
-        r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-    )
+    EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
     @staticmethod
     def validate(email: str) -> ValidationResult:
@@ -230,11 +228,7 @@ class EmailValidator:
             errors.append("Email must contain exactly one @ symbol")
 
         return ValidationResult(
-            len(errors) == 0,
-            email,
-            errors,
-            warnings,
-            ValidationType.EMAIL
+            len(errors) == 0, email, errors, warnings, ValidationType.EMAIL
         )
 
 
@@ -242,14 +236,15 @@ class EmailValidator:
 # DOMAIN VALIDATOR
 # ========================================================================
 
-class DomainValidator:
+
+class DomainValidator:  # pylint: disable=R0903
     """Validate domain names."""
 
     DOMAIN_PATTERN = re.compile(
         r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*"
         r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
         r"$",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
 
     MIN_TLD_LENGTH = 2
@@ -285,11 +280,7 @@ class DomainValidator:
             errors.append(f"TLD too short (min {DomainValidator.MIN_TLD_LENGTH} chars)")
 
         return ValidationResult(
-            len(errors) == 0,
-            domain,
-            errors,
-            warnings,
-            ValidationType.DOMAIN
+            len(errors) == 0, domain, errors, warnings, ValidationType.DOMAIN
         )
 
 
@@ -297,7 +288,8 @@ class DomainValidator:
 # IP ADDRESS VALIDATOR
 # ========================================================================
 
-class IPAddressValidator:
+
+class IPAddressValidator:  # pylint: disable=R0903
     """Validate IP addresses."""
 
     IPV4_PATTERN = re.compile(
@@ -314,8 +306,7 @@ class IPAddressValidator:
         if not ip_address:
             errors.append("IP address cannot be empty")
             return ValidationResult(
-                False, ip_address, errors, warnings,
-                ValidationType.IP_ADDRESS
+                False, ip_address, errors, warnings, ValidationType.IP_ADDRESS
             )
 
         ip_address = ip_address.strip()
@@ -324,11 +315,7 @@ class IPAddressValidator:
             errors.append("Invalid IPv4 address format")
 
         return ValidationResult(
-            len(errors) == 0,
-            ip_address,
-            errors,
-            warnings,
-            ValidationType.IP_ADDRESS
+            len(errors) == 0, ip_address, errors, warnings, ValidationType.IP_ADDRESS
         )
 
 
@@ -336,7 +323,8 @@ class IPAddressValidator:
 # PORT VALIDATOR
 # ========================================================================
 
-class PortValidator:
+
+class PortValidator:  # pylint: disable=R0903
     """Validate network ports."""
 
     MIN_PORT = 1
@@ -354,9 +342,7 @@ class PortValidator:
                 port = int(port)
         except (ValueError, TypeError):
             errors.append("Port must be a valid integer")
-            return ValidationResult(
-                False, port, errors, warnings, ValidationType.PORT
-            )
+            return ValidationResult(False, port, errors, warnings, ValidationType.PORT)
 
         if port < PortValidator.MIN_PORT:
             errors.append(f"Port too low (min {PortValidator.MIN_PORT})")
@@ -368,11 +354,7 @@ class PortValidator:
             warnings.append("Port is in privileged range (1-1023)")
 
         return ValidationResult(
-            len(errors) == 0,
-            port,
-            errors,
-            warnings,
-            ValidationType.PORT
+            len(errors) == 0, port, errors, warnings, ValidationType.PORT
         )
 
 
@@ -380,15 +362,32 @@ class PortValidator:
 # PLATFORM ID VALIDATOR
 # ========================================================================
 
-class PlatformValidator:
+
+class PlatformValidator:  # pylint: disable=R0903
     """Validate platform identifiers."""
 
     VALID_PLATFORMS = {
-        "twitter", "instagram", "tiktok", "reddit", "linkedin",
-        "snapchat", "telegram", "github", "gitlab", "stackoverflow",
-        "dev_to", "codepen", "youtube", "twitch", "medium",
-        "pinterest", "spotify", "patreon", "mastodon", "bluesky",
-        "threads"
+        "twitter",
+        "instagram",
+        "tiktok",
+        "reddit",
+        "linkedin",
+        "snapchat",
+        "telegram",
+        "github",
+        "gitlab",
+        "stackoverflow",
+        "dev_to",
+        "codepen",
+        "youtube",
+        "twitch",
+        "medium",
+        "pinterest",
+        "spotify",
+        "patreon",
+        "mastodon",
+        "bluesky",
+        "threads",
     }
 
     @staticmethod
@@ -400,8 +399,7 @@ class PlatformValidator:
         if not platform_id:
             errors.append("Platform ID cannot be empty")
             return ValidationResult(
-                False, platform_id, errors, warnings,
-                ValidationType.PLATFORM_ID
+                False, platform_id, errors, warnings, ValidationType.PLATFORM_ID
             )
 
         platform_id = platform_id.strip().lower()
@@ -413,11 +411,7 @@ class PlatformValidator:
             )
 
         return ValidationResult(
-            len(errors) == 0,
-            platform_id,
-            errors,
-            warnings,
-            ValidationType.PLATFORM_ID
+            len(errors) == 0, platform_id, errors, warnings, ValidationType.PLATFORM_ID
         )
 
 
@@ -425,12 +419,11 @@ class PlatformValidator:
 # DATABASE QUERY VALIDATOR
 # ========================================================================
 
-class DatabaseValidator:
+
+class DatabaseValidator:  # pylint: disable=R0903
     """Validate database operations."""
 
-    DANGEROUS_KEYWORDS = {
-        "DROP", "DELETE", "TRUNCATE", "ALTER", "EXEC", "EXECUTE"
-    }
+    DANGEROUS_KEYWORDS = {"DROP", "DELETE", "TRUNCATE", "ALTER", "EXEC", "EXECUTE"}
 
     @staticmethod
     def validate_query(query: str) -> ValidationResult:
@@ -441,17 +434,14 @@ class DatabaseValidator:
         if not query:
             errors.append("Query cannot be empty")
             return ValidationResult(
-                False, query, errors, warnings,
-                ValidationType.DATABASE_QUERY
+                False, query, errors, warnings, ValidationType.DATABASE_QUERY
             )
 
         query_upper = query.upper().strip()
 
         for keyword in DatabaseValidator.DANGEROUS_KEYWORDS:
             if keyword in query_upper and not query_upper.startswith("SELECT"):
-                errors.append(
-                    f"Dangerous SQL keyword detected: {keyword}"
-                )
+                errors.append(f"Dangerous SQL keyword detected: {keyword}")
 
         if "--" in query:
             warnings.append("Query contains SQL comment syntax")
@@ -460,11 +450,7 @@ class DatabaseValidator:
             warnings.append("Query contains multiple statements")
 
         return ValidationResult(
-            len(errors) == 0,
-            query,
-            errors,
-            warnings,
-            ValidationType.DATABASE_QUERY
+            len(errors) == 0, query, errors, warnings, ValidationType.DATABASE_QUERY
         )
 
 
@@ -472,13 +458,13 @@ class DatabaseValidator:
 # SCAN TARGET VALIDATOR
 # ========================================================================
 
-class ScanTargetValidator:
+
+class ScanTargetValidator:  # pylint: disable=R0903
     """Validate scan operation targets."""
 
     @staticmethod
     def validate(
-        target: str,
-        platforms: Optional[List[str]] = None
+        target: str, platforms: Optional[List[str]] = None
     ) -> ValidationResult:
         """Validate scan target."""
         errors: List[str] = []
@@ -495,11 +481,7 @@ class ScanTargetValidator:
                     errors.extend(plat_result.errors)
 
         return ValidationResult(
-            len(errors) == 0,
-            target,
-            errors,
-            warnings,
-            ValidationType.SCAN_TARGET
+            len(errors) == 0, target, errors, warnings, ValidationType.SCAN_TARGET
         )
 
 
@@ -507,13 +489,13 @@ class ScanTargetValidator:
 # MASTER VALIDATOR
 # ========================================================================
 
-class Validator:
+
+class Validator:  # pylint: disable=R0903
     """Central validation system."""
 
     @staticmethod
     def validate_username(
-        username: str,
-        level: ValidationLevel = ValidationLevel.MODERATE
+        username: str, level: ValidationLevel = ValidationLevel.MODERATE
     ) -> ValidationResult:
         """Validate username."""
         return UsernameValidator.validate(username, level)
@@ -539,10 +521,7 @@ class Validator:
         return IPAddressValidator.validate(ip_address)
 
     @staticmethod
-    def validate_port(
-        port: Any,
-        warn_privileged: bool = True
-    ) -> ValidationResult:
+    def validate_port(port: Any, warn_privileged: bool = True) -> ValidationResult:
         """Validate port."""
         return PortValidator.validate(port, warn_privileged)
 
@@ -558,8 +537,7 @@ class Validator:
 
     @staticmethod
     def validate_scan_target(
-        target: str,
-        platforms: Optional[List[str]] = None
+        target: str, platforms: Optional[List[str]] = None
     ) -> ValidationResult:
         """Validate scan target."""
         return ScanTargetValidator.validate(target, platforms)
@@ -585,8 +563,10 @@ class Validator:
 # DECORATOR FOR VALIDATION
 # ========================================================================
 
+
 def validate_inputs(**validators: Callable) -> Callable:
     """Decorator to validate function inputs."""
+
     def decorator(func: Callable) -> Callable:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             all_valid, results = Validator.validate_multiple(validators)
@@ -595,9 +575,7 @@ def validate_inputs(**validators: Callable) -> Callable:
                 errors = []
                 for name, result in results.items():
                     if not result.is_valid:
-                        errors.extend(
-                            [f"{name}: {e}" for e in result.errors]
-                        )
+                        errors.extend([f"{name}: {e}" for e in result.errors])
                 error_msg = "Validation failed: " + "; ".join(errors)
                 logger.error(error_msg)
                 raise ValueError(error_msg)
@@ -605,12 +583,14 @@ def validate_inputs(**validators: Callable) -> Callable:
             return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
 # ========================================================================
 # DEMO & TESTING
 # ========================================================================
+
 
 def demo() -> None:
     """Demonstrate validation system."""
